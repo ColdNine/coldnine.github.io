@@ -1,7 +1,7 @@
-theme: jekyll-theme-leap-day
-title: World of Cold9
-description: Herzlich Willkommen!
-
 layout: page
 title: "TEST PAGE"
 permalink: /test/page
+
+theme: jekyll-theme-leap-day
+title: World of Cold9
+description: Herzlich Willkommen!
