@@ -57,7 +57,8 @@ $ git push -u origin BRANCH
 
 # open site "https://user.github.io.git"
 ```
-### Configurations
+
+### Changing Themes
 ```shell
 $ cd $HOME_DIR
 $ vi _config.yml
@@ -70,6 +71,13 @@ plugins:
 minima:
   skin: dark
 ```
+
+### Changing Branches
+1. Github
+2. Repository(Github Pages)
+3. Settings
+4. Code and automation
+5. Pages: `Deploy from a branch` + `BRANCH` `FOLDER` + **Save** (*may take some time*)
 
 ## Reference
 - [Jekyll](https://jekyllrb.com)
