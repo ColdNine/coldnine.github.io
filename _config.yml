@@ -1,4 +1,4 @@
-title: COLD9
+title: GROWTHLOG
 
 author:
   name: Changu Kim
@@ -11,7 +11,7 @@ baseurl: "" # the subpath of your site, e.g. /blog
 
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 
-github_username:  coldnine
+github_username: coldnine
 
 # Build settings
 #theme: minima
@@ -32,7 +32,7 @@ whitelist:
 
 # Minima: https://github.com/jekyll/minima
 minima:
-  skin: dark
+  skin: classic
   social_links:
     - { platform: github,  user_url: "https://github.com/ColdNine/coldnine.github.io" }
     - { platform: gitlab,  user_url: "https://cold9.gitlab.io/blog" }
