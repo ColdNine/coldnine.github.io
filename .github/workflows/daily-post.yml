@@ -2,7 +2,7 @@ name: Daily ETNews Digest
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 1 AM UTC = 10 AM KST
+    - cron: '0 0 * * *'  # 0 UTC = 9 AM KST
   workflow_dispatch:  # allow manual trigger from the GitHub UI
 
 jobs:

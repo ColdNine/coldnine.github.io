@@ -85,7 +85,7 @@ tracks already-processed article IDs.
 [`​.github/workflows/daily-post.yml`](.github/workflows/daily-post.yml) runs the
 pipeline automatically:
 
-- **Schedule:** daily at 1 AM UTC (10 AM KST)
+- **Schedule:** daily at 0 UTC (9 AM KST)
 - **Manual trigger:** GitHub repo → Actions tab → "Daily ETNews Digest" → **Run workflow**
 - **Logs:** each run's steps (crawl, extract, generate, commit) are visible under Actions → the run → job logs
 - The workflow only commits when there are actual changes (`git diff --staged --quiet`), and the commit message includes `[skip ci]` to avoid re-triggering itself
@@ -109,6 +109,22 @@ pipeline automatically:
 
 If `config.yml` is missing, the pipeline falls back to these defaults. Invalid
 values (e.g. an unrecognized `keyword_method`) raise a clear error at startup.
+
+## PWA
+
+The site is installable as a Progressive Web App (Add to Home Screen / desktop install):
+
+- `manifest.webmanifest` — app name, icons, theme color. `_config.yml`'s `pwa_short_name`
+  controls the home-screen label (keep it short, ~12 characters).
+- `sw.js` — service worker: network-first for pages (with `offline.html` as the fallback
+  when there's no cached copy and no connection), cache-first for static assets.
+- `assets/icons/` — placeholder app icons (192/512/512-maskable/apple-touch). Swap these
+  for real branding whenever you have a logo — same filenames, same sizes.
+- Both files have `layout: null` in front matter so they render as raw JSON/JS instead
+  of getting wrapped in the theme's page template (which the site's `defaults:` scope
+  would otherwise apply to any page-like file).
+- Bump `CACHE_VERSION` in `sw.js` after any change to precached assets so returning
+  visitors' browsers drop the old cache instead of serving stale files.
 
 ## Troubleshooting
 

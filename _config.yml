@@ -1,13 +1,14 @@
 title: Daily IT News
 
+# Short name shown under the home-screen icon when installed as a PWA
+# (keep it short - ~12 characters is the usual safe limit on phone home screens).
+pwa_short_name: "IT News"
+
 author:
-  name: "Changu Kim"
-  email: "goldrocket@knou.ac.kr"
+  name: "COLD9"
+  email: "goldrocket18@gmail.com"
   links:
-    - label: "GitHub"
-      icon: "fab fa-fw fa-github"
-      url: "https://github.com/ColdNine/coldnine.github.io"
-    - label: "GitLab"
+    - label: "DOCS4COLD9"
       icon: "fab fa-fw fa-gitlab"
       url: "https://cold9.gitlab.io/blog"
 

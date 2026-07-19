@@ -1,0 +1,35 @@
+---
+layout: null
+---
+{
+  "name": "{{ site.title | default: 'Daily IT News' }}",
+  "short_name": "{{ site.pwa_short_name | default: site.title | default: 'Daily IT News' }}",
+  "description": "{{ site.description | strip_newlines | strip }}",
+  "start_url": "{{ '/' | relative_url }}",
+  "scope": "{{ '/' | relative_url }}",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#112244",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "{{ '/assets/icons/icon-192.png' | relative_url }}",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "{{ '/assets/icons/icon-512.png' | relative_url }}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "{{ '/assets/icons/icon-512-maskable.png' | relative_url }}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

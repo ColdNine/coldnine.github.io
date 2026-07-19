@@ -1,0 +1,21 @@
+<!-- start custom head snippets -->
+
+<!-- PWA -->
+<link rel="manifest" href="{{ '/manifest.webmanifest' | relative_url }}">
+<meta name="theme-color" content="#112244">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/icons/apple-touch-icon.png' | relative_url }}">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ '/assets/icons/icon-192.png' | relative_url }}">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{ site.pwa_short_name | default: site.title | default: 'Daily IT News' }}">
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("{{ '/sw.js' | relative_url }}");
+    });
+  }
+</script>
+
+<!-- end custom head snippets -->
