@@ -40,3 +40,13 @@ $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
    ========================================================================== */
 
 @import "minimal-mistakes"; // main partials
+
+/*
+   Search box — theme default grows the typed term to ~31px/~39px on
+   larger screens; pin it to a flat 25px at every breakpoint instead.
+   ========================================================================== */
+
+.search-content .search-input {
+  font-size: 25px;
+}
+
