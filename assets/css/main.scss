@@ -29,44 +29,22 @@ $masthead-link-color: #eef2f7;
 $masthead-link-color-hover: #6fa8ff;
 $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
 
-/*
-   Skin
-   ========================================================================== */
-
+/* Skin */
 @import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
 
-/*
-   Core
-   ========================================================================== */
-
+/* Core */
 @import "minimal-mistakes"; // main partials
 
-/*
-   Search box — theme default grows the typed term to ~31px/~39px on
-   larger screens; pin it to a flat 25px at every breakpoint instead.
-   ========================================================================== */
+/* Custom */
+.author__content { margin-bottom: 10px; }
 
-.search-content .search-input {
-  font-size: 25px;
-}
-
-/*
-   Author sidebar link icons — image icon for DOCS4COLD9 (fa-fw is 1.25em
-   wide, so match that for alignment with the other font-icon links), and
-   force the GitHub brand icon to white (theme hardcodes $github-color,
-   a near-black, which disappears against the navy background/footer).
-   ========================================================================== */
+.search-content .search-input { font-size: 25px; }
 
 .author__link-icon {
-  width: 1.25em;
-  height: 1.25em;
   vertical-align: middle;
   object-fit: contain;
 }
 
 .social-icons .fa-github,
 .social-icons .fa-github-alt,
-.social-icons .fa-github-square {
-  color: #ffffff;
-}
-
+.social-icons .fa-github-square { color: #ffffff; }
