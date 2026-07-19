@@ -36,16 +36,21 @@ $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
 @import "minimal-mistakes"; // main partials
 
 /* Custom */
-.author__content { margin-bottom: 10px; }
+@media (min-width: 64em) {
+  .author__content { vertical-align: middle; }
+  .author__name { margin: 10px 0; }
+}
 
-.search-content .search-input { font-size: 25px; }
-
-.sidebar img { width: 20px; }
+.author__urls.is--visible { width: max-content; }
 
 .author__link-icon {
   vertical-align: middle;
   object-fit: contain;
 }
+
+.search-content .search-input { font-size: 25px; }
+
+.sidebar img { width: 20px; }
 
 .social-icons .fa-github,
 .social-icons .fa-github-alt,
