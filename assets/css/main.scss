@@ -50,3 +50,23 @@ $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
   font-size: 25px;
 }
 
+/*
+   Author sidebar link icons — image icon for DOCS4COLD9 (fa-fw is 1.25em
+   wide, so match that for alignment with the other font-icon links), and
+   force the GitHub brand icon to white (theme hardcodes $github-color,
+   a near-black, which disappears against the navy background/footer).
+   ========================================================================== */
+
+.author__link-icon {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+.social-icons .fa-github,
+.social-icons .fa-github-alt,
+.social-icons .fa-github-square {
+  color: #ffffff;
+}
+
