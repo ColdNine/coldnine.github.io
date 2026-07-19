@@ -11,12 +11,12 @@ author:
     - label: "DOCS4COLD9"
       icon: "/assets/icons/docs4cold9.png"
       url: "https://cold9.gitlab.io/blog"
-    - label: "ETNews"
-      icon: "/assets/icons/etn.png"
-      url: "https://m.etnews.com"
 
 footer:
   links:
+    - label: "ETNews"
+      icon: "/assets/icons/etn.png"
+      url: "https://m.etnews.com"
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
       url: "https://github.com/ColdNine/coldnine.github.io"
