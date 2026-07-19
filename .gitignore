@@ -37,4 +37,9 @@ __pycache__/
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Local tooling config (not part of the published site)
+.claude/
+.taskmaster/
+.mcp.json

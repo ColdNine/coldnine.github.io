@@ -40,7 +40,7 @@ def build_front_matter(
     article: Article,
     keywords: List[str],
     categories: List[str] = ("etnews", "ai-sw"),
-    layout: str = "post",
+    layout: str = "single",
 ) -> str:
     """Build the YAML front matter block for a post."""
     date = _parse_published_at(article.published_at)
@@ -77,7 +77,7 @@ def generate_post(
     summary: str,
     output_dir: str = "_posts",
     categories: List[str] = ("etnews", "ai-sw"),
-    layout: str = "post",
+    layout: str = "single",
 ) -> str:
     """Generate a Jekyll Markdown post file for `article` and return its path."""
     os.makedirs(output_dir, exist_ok=True)

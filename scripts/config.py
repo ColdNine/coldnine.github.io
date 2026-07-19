@@ -26,7 +26,7 @@ DEFAULTS: Dict[str, Any] = {
     "post": {
         "output_mode": "per_article",
         "categories": ["etnews", "ai-sw"],
-        "layout": "post",
+        "layout": "single",
     },
     "state": {
         "file_path": "data/processed_articles.json",

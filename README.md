@@ -68,6 +68,14 @@ Preview the site with any generated posts:
 bundle exec jekyll serve
 ```
 
+> **Note:** comments (Talkyard) only render when `jekyll.environment == 'production'`
+> (a minimal-mistakes theme condition). Local `serve`/`build` runs in `development`
+> mode by default, so comments won't show up unless you build with:
+> ```bash
+> JEKYLL_ENV=production bundle exec jekyll build
+> ```
+> The production GitHub Actions deploy already sets this, so comments work fine live.
+
 Run twice in a row to confirm deduplication: the second run should log
 `0 new article(s) to process` since [`data/processed_articles.json`](data/processed_articles.json)
 tracks already-processed article IDs.
@@ -87,7 +95,7 @@ pipeline automatically:
 | Key | Description | Default |
 |---|---|---|
 | `crawler.section_url` | ETNews section listing URL to crawl | AI/SW section |
-| `crawler.lookback_days` | Skip articles older than this many days | `7` |
+| `crawler.lookback_days` | How far back (in days) the crawler paginates the section listing; articles older than this are skipped. Also the depth the crawler walks back on each run, so late/backlogged articles from prior days are never missed regardless of publishing volume | `7` |
 | `crawler.request_timeout` | HTTP request timeout (seconds) | `15` |
 | `crawler.max_retries` | Retry attempts per HTTP request | `3` |
 | `extraction.keyword_method` | Keyword extraction method (`tfidf`; `keybert`/`llm` reserved for future use) | `tfidf` |

@@ -1,8 +1,21 @@
-title: Daily Keywords
+title: Daily IT News
 
 author:
-  name: Changu Kim
-  email: goldrocket@knou.ac.kr
+  name: "Changu Kim"
+  email: "goldrocket@knou.ac.kr"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/ColdNine/coldnine.github.io"
+    - label: "GitLab"
+      icon: "fab fa-fw fa-gitlab"
+      url: "https://cold9.gitlab.io/blog"
+
+footer:
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/ColdNine/coldnine.github.io"
 
 description: >- # this means to ignore newlines until "baseurl:"
   Daily news keywords, crawled automatically.
@@ -13,29 +26,63 @@ url: "https://coldnine.github.io" # the base hostname & protocol for your site, 
 
 github_username: coldnine
 
+# Files/dirs that are part of this repo's automation tooling, not the site itself -
+# keep them out of the built _site output.
+exclude:
+  - scripts/
+  - data/
+  - config.yml
+  - requirements.txt
+  - README.md
+  - PRD.md
+  - CLAUDE.md
+  - Gemfile
+  - Gemfile.lock
+
 # Build settings
-#theme: minima
-remote_theme: jekyll/minima
+remote_theme: "mmistakes/minimal-mistakes@4.24.0"
+minimal_mistakes_skin: "default"
 
-# https://planetjekyll.github.io/plugins
 plugins:
-  - jekyll-feed
   - jekyll-remote-theme
-  - jekyll-seo-tag
-
-safe: true
-
-whitelist:
   - jekyll-feed
-  - jekyll-remote-theme
   - jekyll-seo-tag
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-include-cache
 
-# Minima: https://github.com/jekyll/minima
-minima:
-  skin: classic
-  social_links:
-    - { platform: github,  user_url: "https://github.com/ColdNine/coldnine.github.io" }
-    - { platform: gitlab,  user_url: "https://cold9.gitlab.io/blog" }
+# Pagination (used by the blog home page)
+paginate: 5
+paginate_path: /page:num/
+
+# Built-in Lunr search - handy once daily posts pile up
+search: true
+
+# Comments: routed through a custom provider so the existing Talkyard
+# integration (_includes/talkyard-comments.html) keeps working under the
+# new theme. See _includes/comments-providers/custom.html.
+comments:
+  provider: "custom"
+
+# Front matter defaults
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: single
+      author_profile: true
 
 # Talkyard
 #  - https://jekyll-demo.talkyard.io/2018/01/09/installation-instructions.html

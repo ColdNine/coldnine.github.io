@@ -17,7 +17,7 @@ extraction:
 post:
   output_mode: 'per_article'  # Options: per_article, daily_digest (future)
   categories: ['etnews', 'ai-sw']
-  layout: 'post'
+  layout: 'single'  # matches the current theme's post layout name (minimal-mistakes)
 
 # State management
 state:
