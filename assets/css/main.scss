@@ -36,12 +36,15 @@ $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
 @import "minimal-mistakes"; // main partials
 
 /* Custom */
-@media (min-width: 64em) {
-  .author__content { vertical-align: middle; }
-  .author__name { margin: 10px 0; }
+.author__content {
+  margin-bottom: 10px;
+  vertical-align: middle;
 }
 
-.author__urls.is--visible { width: max-content; }
+.author__urls.is--visible {
+  width: max-content;
+  padding: 10px 15px;
+}
 
 .author__link-icon {
   vertical-align: middle;
