@@ -1,11 +1,11 @@
-title: GROWTHLOG
+title: Daily Keywords
 
 author:
   name: Changu Kim
   email: goldrocket@knou.ac.kr
 
 description: >- # this means to ignore newlines until "baseurl:"
-  To learn is to survive.
+  Daily news keywords, crawled automatically.
 
 baseurl: "" # the subpath of your site, e.g. /blog
 

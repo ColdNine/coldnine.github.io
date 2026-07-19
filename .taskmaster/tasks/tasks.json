@@ -1,0 +1,823 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Build ETNews AI/SW article crawler",
+        "description": "Implement Python script to fetch and parse article listings from ETNews AI/SW section, extract article metadata (URL, title, date) and retrieve full article content",
+        "details": "Create `scripts/crawl.py` with:\n- HTTP client using `requests` library (install via requirements.txt)\n- BeautifulSoup4 for HTML parsing\n- Fetch section listing from https://m.etnews.com/news/section.html?id1=04\n- Parse article links matching pattern `https://etnews.com/YYYYMMDD000000`\n- Extract article ID from URL (YYYYMMDD + 6-digit suffix)\n- For each article link, fetch detail page and parse:\n  - Title (from <h1> or article heading tag)\n  - Published date (from meta tags or article date field)\n  - Body text (from article content div/section, strip HTML tags)\n  - Source URL\n- Return list of Article objects: {id: str, url: str, title: str, published_at: str, raw_text: str, section: 'AI/SW'}\n- Handle network errors gracefully with retry logic (exponential backoff, max 3 retries)\n- Add user-agent header to avoid being blocked\n- Log crawl progress and errors to stdout\n- Implement as standalone function `crawl_etnews_section(section_url: str) -> List[Article]`",
+        "testStrategy": "Manual testing: Run script locally and verify it fetches real articles from ETNews AI/SW section. Check article data structure contains all required fields. Test with actual ETNews URLs. Validate HTML parsing extracts title/body/date correctly. Test error handling by simulating network failures.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up HTTP client with requests library and error handling",
+            "description": "Implement robust HTTP client setup with requests library, user-agent headers, timeout configuration, and exponential backoff retry logic for network failures",
+            "dependencies": [],
+            "details": "Create `scripts/crawl.py` foundation with:\n- Import requests library and configure session with proper headers (user-agent to avoid blocking)\n- Implement retry decorator/function with exponential backoff (max 3 retries, backoff factor 2)\n- Set request timeout to 30 seconds\n- Handle common HTTP errors (404, 500, connection errors, timeouts)\n- Add logging for retry attempts and failures using Python's logging module\n- Create reusable `fetch_url(url: str) -> requests.Response` function that handles all error cases\n- Test with actual ETNews URLs to verify anti-blocking headers work",
+            "status": "done",
+            "testStrategy": "Unit test retry logic by mocking requests to simulate network failures. Test timeout handling. Verify exponential backoff timing. Test with real ETNews URLs to ensure headers prevent blocking. Check logging output contains retry attempts and errors.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:27:19.377Z"
+          },
+          {
+            "id": 2,
+            "title": "Parse section listing page with BeautifulSoup",
+            "description": "Implement BeautifulSoup HTML parsing to extract article links from ETNews AI/SW section listing page, handling Korean text encoding correctly",
+            "dependencies": [
+              1
+            ],
+            "details": "Add BeautifulSoup4 parsing for section listing:\n- Fetch section listing from https://m.etnews.com/news/section.html?id1=04 using HTTP client from subtask 1\n- Parse HTML response with BeautifulSoup (lxml parser for better Korean text handling)\n- Identify article link container elements (inspect page to find correct CSS selectors/tags)\n- Extract all <a> tags containing article links\n- Filter links matching ETNews article URL pattern: `https://etnews.com/YYYYMMDD000000` using regex\n- Handle encoding properly for Korean characters (ensure UTF-8)\n- Return list of article URLs as strings\n- Add logging for number of articles found\n- Create function `parse_section_listing(html: str) -> List[str]`",
+            "status": "done",
+            "testStrategy": "Test with saved HTML fixture of section page. Verify correct number of article links extracted. Test regex pattern matches valid URLs and rejects invalid ones. Check Korean text encoding is preserved. Test with actual live section page to verify selectors still work.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:27:22.868Z"
+          },
+          {
+            "id": 3,
+            "title": "Extract article IDs and validate URL patterns",
+            "description": "Implement article ID extraction from ETNews URLs using pattern matching, validate URL format, and create unique article identifiers",
+            "dependencies": [
+              2
+            ],
+            "details": "Build article ID extraction logic:\n- Define regex pattern for ETNews article URLs: `https://etnews.com/(\\d{8})(\\d{6})`\n- Extract date part (YYYYMMDD) and sequence number (6 digits) from URL\n- Combine into article ID string: `YYYYMMDD` + sequence (e.g., '20240115123456')\n- Validate URL format matches expected pattern, log warnings for unexpected formats\n- Handle edge cases: malformed URLs, missing components\n- Filter out non-article URLs (ads, category pages, etc.)\n- Create function `extract_article_id(url: str) -> Optional[str]` returning ID or None if invalid\n- Deduplicate article IDs to avoid fetching same article twice\n- Log skipped/invalid URLs for debugging",
+            "status": "done",
+            "testStrategy": "Unit test with various URL formats (valid, invalid, edge cases). Verify correct ID extraction from valid URLs. Test deduplication works. Check invalid URLs return None. Test with real ETNews URLs from different dates.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:27:26.384Z"
+          },
+          {
+            "id": 4,
+            "title": "Fetch and parse article detail pages for metadata and content",
+            "description": "Implement article detail page fetching and HTML parsing to extract title, published date, and body text from individual ETNews article pages",
+            "dependencies": [
+              3
+            ],
+            "details": "Create article detail parser:\n- For each article URL, fetch detail page using HTTP client from subtask 1\n- Parse HTML with BeautifulSoup\n- Extract title: find <h1> tag or article heading (inspect article pages for correct selector)\n- Extract published date: search meta tags (property='article:published_time') or article date field, parse into ISO format string\n- Extract body text: identify main article content container (likely <div class='article-body'> or similar), extract text content, strip HTML tags, preserve paragraph breaks\n- Handle Korean text encoding properly (UTF-8)\n- Remove ads, related articles, and other non-content elements\n- Log warnings for missing fields\n- Create function `parse_article_detail(html: str, url: str) -> dict` returning {title, published_at, raw_text}\n- Handle parsing failures gracefully, return None for unparseable articles",
+            "status": "done",
+            "testStrategy": "Test with saved HTML fixtures of real ETNews articles. Verify title, date, and body extracted correctly. Check Korean text preserved without encoding issues. Test with articles of different layouts. Verify HTML tags stripped from body. Test error handling with malformed HTML.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:27:30.142Z"
+          },
+          {
+            "id": 5,
+            "title": "Create Article data model and implement main crawler function",
+            "description": "Define Article dataclass/model structure and implement main crawler function that orchestrates fetching, parsing, and returns list of Article objects",
+            "dependencies": [
+              4
+            ],
+            "details": "Build main crawler interface:\n- Define Article dataclass/TypedDict with fields: {id: str, url: str, title: str, published_at: str, raw_text: str, section: str}\n- Implement `crawl_etnews_section(section_url: str) -> List[Article]` function that:\n  - Fetches section listing page (subtask 2)\n  - Extracts article URLs and IDs (subtask 3)\n  - For each article URL, fetches and parses detail page (subtask 4)\n  - Constructs Article object with all fields populated, section='AI/SW'\n  - Filters out articles with missing required fields (title/date/body)\n  - Returns list of valid Article objects\n- Add progress logging: 'Processing article X of Y'\n- Log summary: 'Successfully crawled X articles, Y failed'\n- Add type hints throughout\n- Make function idempotent and safe to re-run",
+            "status": "done",
+            "testStrategy": "Integration test: Run crawler against real ETNews section URL. Verify returns list of Article objects with all required fields. Check article count matches expected. Validate article data quality (titles in Korean, dates in correct format, body text has content). Test end-to-end with logging output verification.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:27:33.485Z"
+          }
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down the ETNews crawler implementation into: (1) HTTP client setup with requests library and error handling, (2) BeautifulSoup HTML parsing for section listing page, (3) Article link extraction and URL pattern matching, (4) Article detail page fetching and parsing (title/date/body), (5) Article data model and return structure. Each subtask should be testable independently.",
+        "updatedAt": "2026-07-19T06:27:33.485Z"
+      },
+      {
+        "id": "2",
+        "title": "Implement TF-IDF keyword extraction with KoNLPy",
+        "description": "Create keyword extraction function using Korean morphological analysis (KoNLPy) and TF-IDF scoring to identify top N keywords from article text",
+        "details": "Create `scripts/extract.py` with keyword extraction:\n- Install KoNLPy (requires JPype1 for JVM), konlpy, scikit-learn in requirements.txt\n- Use KoNLPy's Okt (Open Korean Text) tokenizer for Korean text processing\n- Tokenize article text into nouns/proper nouns (content words most meaningful for keywords)\n- Filter out stopwords and single-character tokens\n- Calculate TF-IDF scores using sklearn's TfidfVectorizer:\n  - TF-IDF considers term frequency in document and inverse document frequency across all processed articles\n  - For single-article processing, use simple term frequency with manual IDF-like weighting\n- Extract top 5-10 keywords with highest scores\n- Return keywords as list of strings ranked by score\n- Function signature: `extract_keywords_tfidf(text: str, n_keywords: int = 7) -> List[str]`\n- Handle Korean text encoding properly (UTF-8)\n- Add error handling for JVM initialization failures (KoNLPy dependency)",
+        "testStrategy": "Unit tests with sample Korean article text. Verify extracted keywords are relevant nouns/terms from the text. Test with articles of varying lengths. Manually inspect keyword quality for a few real ETNews articles. Verify it returns requested number of keywords.",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up KoNLPy and JPype1 dependencies in requirements.txt",
+            "description": "Add KoNLPy, JPype1, and scikit-learn to requirements.txt with pinned versions to enable Korean morphological analysis with JVM support",
+            "dependencies": [],
+            "details": "Add the following dependencies to requirements.txt:\n- JPype1==1.4.1 (JVM bridge required by KoNLPy)\n- konlpy==0.6.0 (Korean NLP library)\n- scikit-learn==1.3.2 (for TfidfVectorizer)\n\nJPype1 provides the Java Virtual Machine bridge that KoNLPy requires for its underlying Korean analyzers. KoNLPy will be used specifically with the Okt (Open Korean Text) tokenizer. Include installation notes in comments about JDK requirements (Java 1.7+ needed). Consider platform-specific installation issues (Windows may need additional setup).",
+            "status": "done",
+            "testStrategy": "Create fresh virtual environment and run `pip install -r requirements.txt`. Verify all three packages install without errors. Test `import konlpy` and `from konlpy.tag import Okt` to confirm JVM initialization works. Document any platform-specific installation issues encountered.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:40:14.339Z"
+          },
+          {
+            "id": 2,
+            "title": "Implement Korean text tokenization with Okt tokenizer",
+            "description": "Create tokenization function using KoNLPy's Okt analyzer to extract nouns and proper nouns from Korean article text",
+            "dependencies": [
+              1
+            ],
+            "details": "In `scripts/extract.py`, create helper function `tokenize_korean(text: str) -> List[str]`:\n- Initialize Okt tokenizer: `okt = Okt()`\n- Use `okt.nouns(text)` to extract all nouns and proper nouns (most meaningful content words for keywords)\n- Handle UTF-8 encoding properly for Korean text\n- Add try-except block for JVM initialization errors with informative error messages\n- Return list of extracted noun tokens\n- Consider caching Okt instance to avoid repeated JVM initialization overhead",
+            "status": "done",
+            "testStrategy": "Unit test with sample Korean text containing various nouns, proper nouns, and other parts of speech. Verify only nouns/proper nouns are extracted. Test with UTF-8 encoded strings. Test error handling by simulating JVM initialization failure. Verify extracted tokens are valid Korean morphemes.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:43:17.301Z"
+          },
+          {
+            "id": 3,
+            "title": "Implement stopword filtering and token cleanup",
+            "description": "Create filtering logic to remove Korean stopwords, single-character tokens, and low-quality terms from tokenized text",
+            "dependencies": [
+              2
+            ],
+            "details": "In `scripts/extract.py`, create `filter_tokens(tokens: List[str]) -> List[str]`:\n- Define Korean stopword list (common words like: 것, 등, 때, 수, 년, 월, 일, etc.)\n- Filter out single-character tokens (usually not meaningful as keywords)\n- Remove tokens that are purely numeric or special characters\n- Optionally filter extremely common domain terms that appear in every article\n- Consider minimum token length threshold (e.g., >= 2 characters)\n- Return cleaned token list\n- Keep filtering rules configurable for future tuning",
+            "status": "done",
+            "testStrategy": "Test with token list containing stopwords, single chars, numbers, and valid keywords. Verify stopwords are removed. Verify single-character tokens filtered out. Test edge cases like empty input, all-stopword input. Manually review filtered results for a sample article to ensure meaningful terms retained.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:43:20.778Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement TF-IDF scoring with scikit-learn",
+            "description": "Create TF-IDF calculation logic using sklearn's TfidfVectorizer to score term importance, adapted for single-document context",
+            "dependencies": [
+              3
+            ],
+            "details": "In `scripts/extract.py`, create `calculate_tfidf_scores(tokens: List[str]) -> Dict[str, float]`:\n- For single-document processing, use term frequency with manual weighting since traditional IDF requires corpus\n- Use sklearn's TfidfVectorizer with parameters:\n  - analyzer='word'\n  - token_pattern for Korean (or use preprocessed tokens)\n  - max_features=None (we'll select top-N later)\n- Alternative: Use simple term frequency (Counter) with length normalization if TfidfVectorizer doesn't fit single-doc scenario well\n- Return dictionary mapping each unique token to its TF-IDF score\n- Normalize scores to [0, 1] range for interpretability",
+            "status": "done",
+            "testStrategy": "Test with sample tokenized Korean article. Verify TF-IDF scores are calculated correctly (higher for distinctive terms, lower for common ones). Test that scores are normalized properly. Compare results with manual TF calculation to verify correctness. Test edge case with single unique token.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:43:24.219Z"
+          },
+          {
+            "id": 5,
+            "title": "Implement top-N keyword selection logic",
+            "description": "Create function to select and rank top N keywords based on TF-IDF scores with configurable keyword count",
+            "dependencies": [
+              4
+            ],
+            "details": "In `scripts/extract.py`, implement `select_top_keywords(score_dict: Dict[str, float], n: int) -> List[str]`:\n- Sort tokens by TF-IDF score in descending order\n- Select top N tokens (default N=7 based on requirements)\n- Return as list of strings ranked by score (highest first)\n- Handle edge case where fewer than N unique tokens available\n- Consider adding minimum score threshold to filter out low-quality keywords\n- Optionally return tuples of (keyword, score) for debugging/logging purposes",
+            "status": "done",
+            "testStrategy": "Test with score dictionary of varying sizes. Verify correct number of keywords returned. Verify keywords are sorted by score descending. Test edge cases: n > available keywords, n=0, empty score dict. Manually review top keywords from real article to assess quality and relevance.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:43:27.562Z"
+          },
+          {
+            "id": 6,
+            "title": "Create main extract_keywords_tfidf function with error handling",
+            "description": "Build the primary public API function that orchestrates tokenization, filtering, scoring, and selection with comprehensive error handling",
+            "dependencies": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "In `scripts/extract.py`, implement `extract_keywords_tfidf(text: str, n_keywords: int = 7) -> List[str]`:\n- Function flow: tokenize_korean() → filter_tokens() → calculate_tfidf_scores() → select_top_keywords()\n- Add comprehensive error handling:\n  - Try-except for JVM initialization failures (KoNLPy dependency) with informative error message\n  - Handle UTF-8 encoding errors gracefully\n  - Validate input (non-empty text, positive n_keywords)\n  - Return empty list or raise clear exception on failure\n- Add logging for debugging (token count, filtering stats, top keywords)\n- Include docstring with usage examples\n- Consider caching Okt instance at module level to avoid repeated JVM initialization",
+            "status": "done",
+            "testStrategy": "End-to-end test with real Korean ETNews article text. Verify complete pipeline returns 7 relevant keywords by default. Test with varying n_keywords values (3, 5, 10). Test error cases: empty text, invalid n_keywords, simulated JVM failure. Manually review extracted keywords from 3-5 real articles for quality and relevance.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:43:30.886Z"
+          }
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 6,
+        "expansionPrompt": "Break down Korean keyword extraction into: (1) KoNLPy and dependencies installation/setup (JPype1 for JVM), (2) Korean text tokenization with Okt tokenizer, (3) Stopword filtering and token cleanup, (4) TF-IDF scoring implementation with scikit-learn, (5) Top-N keyword selection logic, (6) Error handling for JVM initialization and encoding issues. Focus on Korean-specific challenges.",
+        "updatedAt": "2026-07-19T06:43:30.886Z"
+      },
+      {
+        "id": "3",
+        "title": "Implement TextRank extractive summarization",
+        "description": "Create summarization function using TextRank algorithm to generate 2-5 sentence extractive summary from article text",
+        "details": "Add to `scripts/extract.py`:\n- Install sumy library for TextRank summarization (requires nltk)\n- Use sumy's TextRankSummarizer with Korean text support\n- Configure to extract 3-5 most important sentences from article\n- TextRank algorithm:\n  - Builds graph of sentences with edges weighted by sentence similarity\n  - Applies PageRank to identify most central/important sentences\n  - Returns top-ranked sentences in original document order\n- Preprocessing: split article into sentences (use Korean-aware sentence tokenizer)\n- Post-processing: join selected sentences with proper spacing\n- Function signature: `summarize_textrank(text: str, sentence_count: int = 4) -> str`\n- Handle edge cases: very short articles (< sentence_count), single-paragraph articles\n- Preserve original sentence order in output summary\n- Add fallback: if TextRank fails, return first N sentences as summary",
+        "testStrategy": "Test with sample Korean articles of different lengths. Verify summary length matches requested sentence count. Check that summary sentences appear in original document order. Manually review summary quality for coherence and informativeness. Test edge cases (very short/long articles).",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install sumy library and configure Korean language support",
+            "description": "Set up sumy library with nltk dependencies and Korean language data required for TextRank summarization",
+            "dependencies": [],
+            "details": "Add to requirements.txt: sumy>=0.11.0, nltk>=3.8.1. Install Korean punkt tokenizer data using nltk.download('punkt'). Verify sumy's TextRankSummarizer can be imported and initialized. Test Korean language support by running a simple summarization on Korean text sample. Configure nltk data path if needed for the project environment.",
+            "status": "done",
+            "testStrategy": "Verify sumy and nltk install without errors. Test that Korean punkt tokenizer is available. Run basic sumy TextRankSummarizer on sample Korean text to confirm language support works correctly.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T06:50:41.437Z"
+          },
+          {
+            "id": 2,
+            "title": "Implement Korean sentence tokenization preprocessing",
+            "description": "Create preprocessing function to split Korean article text into sentences using Korean-aware tokenizer",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement `preprocess_sentences(text: str) -> List[str]` function in extract.py. Use nltk's Korean punkt tokenizer for sentence boundary detection. Handle Korean-specific punctuation (。, !, ?, etc.). Clean whitespace and normalize sentence formatting. Test with various Korean article structures (multiple paragraphs, quotes, lists). Return list of sentence strings ready for TextRank processing.",
+            "status": "done",
+            "testStrategy": "Test with Korean articles containing various punctuation patterns. Verify sentences are split correctly at Korean sentence boundaries. Check edge cases: single sentence articles, articles with quotes/parentheses, mixed Korean/English text.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:01:01.308Z"
+          },
+          {
+            "id": 3,
+            "title": "Configure and execute TextRank algorithm with sumy",
+            "description": "Implement core TextRank summarization using sumy's TextRankSummarizer to extract most important sentences",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement `summarize_textrank(text: str, sentence_count: int = 4) -> str` in extract.py. Initialize sumy's TextRankSummarizer with Korean language support. Use PlaintextParser from sumy to parse preprocessed text. Configure sentence_count parameter (default 4, range 2-5). Execute TextRank algorithm to rank sentences by importance. Extract top N sentences based on PageRank scores. Handle the case where requested sentence_count exceeds available sentences in article.",
+            "status": "done",
+            "testStrategy": "Test with Korean articles of varying lengths (5 sentences, 10 sentences, 20+ sentences). Verify correct number of sentences returned. Confirm TextRank selects meaningful/central sentences. Test boundary case where article has fewer sentences than requested count.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:01:04.709Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement post-processing, sentence ordering, and fallback handling",
+            "description": "Add post-processing to preserve original sentence order in summary and implement fallback strategies for edge cases",
+            "dependencies": [
+              3
+            ],
+            "details": "Extend summarize_textrank function with post-processing: (1) Preserve original document order of selected sentences by sorting by their position in source text. (2) Join sentences with proper Korean spacing. (3) Implement fallback: if TextRank fails (exception, empty result), return first N sentences as summary. (4) Handle edge cases: very short articles (<sentence_count), single-paragraph articles, empty/invalid input. Add try-except blocks around TextRank execution. Return fallback summary using simple sentence extraction when needed.",
+            "status": "done",
+            "testStrategy": "Test sentence order preservation: verify summary sentences appear in same order as original article. Test fallback with intentionally broken input. Test edge cases: 2-sentence article with sentence_count=4, empty string input, very long articles. Manually review summaries for coherence and proper spacing.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:01:08.064Z"
+          }
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down TextRank summarization into: (1) sumy library installation and Korean language support setup, (2) Korean sentence tokenization preprocessing, (3) TextRank algorithm configuration and execution, (4) Post-processing (sentence ordering, joining) and fallback handling for edge cases. Include testing with various article lengths.",
+        "updatedAt": "2026-07-19T07:01:08.064Z"
+      },
+      {
+        "id": "4",
+        "title": "Build Jekyll Markdown post generator",
+        "description": "Create post generator that converts article metadata, keywords, and summary into Jekyll-compatible Markdown files with proper YAML front matter and filename conventions",
+        "details": "Create `scripts/generate_post.py`:\n- Function signature: `generate_post(article: Article, keywords: List[str], summary: str, output_dir: str = '_posts') -> str`\n- Generate filename: `_posts/YYYY-MM-DD-<slugified-title>.md`\n  - Extract date from article.published_at\n  - Slugify title: lowercase, remove special chars, replace spaces with hyphens, max 50 chars\n  - Use python-slugify library for proper Korean→ASCII slug conversion\n- YAML front matter template:\n  ```yaml\n  ---\n  layout: post\n  title: \"[Original Article Title]\"\n  date: YYYY-MM-DD HH:MM:SS +0900\n  categories: [etnews, ai-sw]\n  tags: [keyword1, keyword2, ...]\n  source_url: \"https://etnews.com/YYYYMMDD000000\"\n  auto_generated: true\n  ---\n  ```\n- Markdown body template:\n  ```markdown\n  ## Keywords\n  keyword1, keyword2, keyword3, ...\n\n  ## Summary\n  [Summary text here]\n\n  ---\n  *This post was automatically generated from [ETNews AI/SW section](source_url). [Read original article →](source_url)*\n  ```\n- Create `_posts/` directory if it doesn't exist\n- Write file with UTF-8 encoding\n- Return generated file path for logging",
+        "testStrategy": "Unit test with mock Article, keywords, summary data. Verify YAML front matter is valid (test with Jekyll parser or YAML library). Check filename follows YYYY-MM-DD-slug.md convention. Verify file content renders correctly by running `bundle exec jekyll serve` locally and viewing generated post. Test Korean character handling in title/slug/content.",
+        "priority": "high",
+        "dependencies": [
+          "2",
+          "3"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Jekyll filename convention with Korean→ASCII slug conversion",
+            "description": "Create filename generation logic that follows Jekyll's YYYY-MM-DD-slug.md convention, extracting date from article.published_at and converting Korean titles to ASCII slugs using python-slugify library",
+            "dependencies": [],
+            "details": "Implement filename generation function:\n- Extract date from article.published_at and format as YYYY-MM-DD\n- Install and use python-slugify library for proper Korean→ASCII conversion\n- Slugify title: lowercase, remove special characters, replace spaces with hyphens\n- Limit slug to max 50 characters for readability\n- Combine into format: _posts/YYYY-MM-DD-<slug>.md\n- Handle edge cases: empty titles, special characters, very long titles\n- Example: article with title \"AI 소프트웨어 혁신\" published 2025-07-19 → _posts/2025-07-19-ai-sopeuteuweeo-hyeogsin.md",
+            "status": "done",
+            "testStrategy": "Unit test with various Korean titles, special characters, and edge cases. Verify python-slugify correctly transliterates Korean characters. Test date extraction from different timestamp formats. Verify max 50 char limit enforced. Check that filenames are valid on all OS platforms (no invalid characters).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:11:37.176Z"
+          },
+          {
+            "id": 2,
+            "title": "Create YAML front matter template with proper escaping",
+            "description": "Build YAML front matter generation function that creates Jekyll-compatible metadata with proper escaping for Korean characters and special characters in titles",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement YAML front matter generation:\n- Template structure with required fields: layout, title, date, categories, tags, source_url, auto_generated\n- Proper YAML string escaping for Korean characters in title (use quotes)\n- Date format: YYYY-MM-DD HH:MM:SS +0900 (KST timezone)\n- Categories: [etnews, ai-sw] hardcoded\n- Tags: dynamic list from keywords parameter\n- Source URL: constructed from article ID\n- Use YAML library (PyYAML) for safe serialization or manual escaping with quotes\n- Handle edge cases: quotes in title, newlines, colons",
+            "status": "done",
+            "testStrategy": "Unit test with Korean titles containing quotes, colons, and special characters. Validate generated YAML with PyYAML parser or Jekyll's YAML parser. Test with various keyword lists. Verify timezone is always +0900. Test that generated front matter renders correctly in Jekyll.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:11:40.537Z"
+          },
+          {
+            "id": 3,
+            "title": "Build Markdown body template with keywords, summary, and attribution",
+            "description": "Create Markdown body template that formats keywords section, summary section, and attribution footer with proper formatting and links",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement Markdown body generation:\n- Keywords section: \"## Keywords\" header followed by comma-separated keyword list\n- Summary section: \"## Summary\" header followed by summary text\n- Attribution footer: horizontal rule, italic text with source link and \"Read original article\" link\n- Template variables: keywords list, summary string, source_url\n- Ensure proper Markdown formatting (headers, links, italics)\n- Handle multi-paragraph summaries with proper spacing\n- Example output:\n  ```markdown\n  ## Keywords\n  AI, 소프트웨어, 혁신\n  \n  ## Summary\n  [Summary text]\n  \n  ---\n  *This post was automatically generated from [ETNews AI/SW section](url). [Read original article →](url)*\n  ```",
+            "status": "done",
+            "testStrategy": "Unit test with various keyword counts and summary lengths. Verify Markdown syntax is valid. Test with multi-paragraph summaries. Verify links are properly formatted. Render test output with Jekyll locally and verify formatting appears correct. Test with Korean and English mixed content.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:11:43.848Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement file I/O with UTF-8 encoding and directory creation",
+            "description": "Create file writing logic that handles UTF-8 encoding for Korean content, creates _posts directory if missing, and returns generated file path",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement file I/O operations:\n- Check if _posts directory exists, create if missing (os.makedirs with exist_ok=True)\n- Combine YAML front matter and Markdown body with proper delimiters (---)\n- Write complete file content with UTF-8 encoding (open with encoding='utf-8')\n- Return full file path for logging: _posts/YYYY-MM-DD-slug.md\n- Handle file write errors gracefully with error messages\n- Ensure cross-platform compatibility (Windows/Linux/Mac)\n- Function signature: generate_post(article: Article, keywords: List[str], summary: str, output_dir: str = '_posts') -> str\n- Log success message with file path",
+            "status": "done",
+            "testStrategy": "Unit test file creation with Korean content. Verify UTF-8 encoding by reading file back and checking characters. Test directory creation when _posts doesn't exist. Test with custom output_dir parameter. Verify file permissions are correct. Test error handling for write failures (read-only directory).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:12:10.505Z"
+          },
+          {
+            "id": 5,
+            "title": "Integration testing with Jekyll local preview and minima theme",
+            "description": "Test complete post generation pipeline with real Article data and verify posts render correctly with Jekyll local preview using existing minima theme",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Integration testing steps:\n- Create test Article objects with Korean titles, various publish dates, and sample metadata\n- Generate test posts using generate_post function with mock keywords and summaries\n- Run `bundle exec jekyll serve` locally to preview generated posts\n- Verify posts appear in blog listing with correct dates and titles\n- Check individual post pages render correctly: title, date, keywords section, summary section, attribution footer\n- Verify minima theme compatibility: layout, styling, typography for Korean characters\n- Test with multiple posts to verify sorting by date\n- Verify source_url links work correctly\n- Check auto_generated metadata doesn't break theme\n- Test edge cases: very long titles, many keywords, long summaries",
+            "status": "done",
+            "testStrategy": "End-to-end integration test: Generate 5+ test posts with varied content. Start Jekyll server and manually inspect each post in browser. Verify Korean characters render correctly. Check responsive design on mobile. Validate HTML output with W3C validator. Test RSS feed includes generated posts. Verify no console errors in browser.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:26:43.081Z"
+          }
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down post generation into: (1) Jekyll filename convention implementation (YYYY-MM-DD-slug.md with python-slugify for Korean→ASCII), (2) YAML front matter template creation with proper escaping, (3) Markdown body template with keywords/summary/attribution, (4) File I/O with UTF-8 encoding and directory creation, (5) Integration testing with Jekyll local preview. Ensure compatibility with existing minima theme.",
+        "updatedAt": "2026-07-19T07:26:43.081Z"
+      },
+      {
+        "id": "5",
+        "title": "Implement article deduplication and state tracking",
+        "description": "Create state management system to track processed article IDs and prevent duplicate post generation across multiple runs",
+        "details": "Create `scripts/state.py` and `data/processed_articles.json`:\n- State file structure: `{\"processed_ids\": [\"20250719000001\", ...], \"last_run_at\": \"2025-07-19T09:00:00+09:00\"}`\n- Implement StateManager class:\n  - `load_state(state_file: str = 'data/processed_articles.json') -> dict`\n  - `save_state(state: dict, state_file: str) -> None`\n  - `is_processed(article_id: str, state: dict) -> bool`\n  - `mark_processed(article_id: str, state: dict) -> dict`\n- State file location: `data/processed_articles.json` (committed to repo)\n- Initialize state file if doesn't exist: `{\"processed_ids\": [], \"last_run_at\": null}`\n- Filter articles in crawler: skip any article whose ID is in processed_ids list\n- After successful post generation, add article ID to processed_ids\n- Update last_run_at timestamp after each run\n- Handle state file corruption gracefully: if JSON parse fails, backup corrupt file and create fresh state\n- Ensure state file is committed after each run (included in GitHub Actions commit)",
+        "testStrategy": "Unit tests: test state file creation, loading, saving, dedup logic. Integration test: run crawler+generator twice, verify second run produces no duplicate posts. Test state file corruption recovery. Manually verify state file is valid JSON and contains expected article IDs.",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement JSON state file structure with initialization",
+            "description": "Create the state file structure and initialization logic to track processed article IDs and run timestamps",
+            "dependencies": [],
+            "details": "Create `data/processed_articles.json` with structure: `{\"processed_ids\": [\"20250719000001\", ...], \"last_run_at\": \"2025-07-19T09:00:00+09:00\"}`. Implement initialization function that creates the state file if it doesn't exist with default values: `{\"processed_ids\": [], \"last_run_at\": null}`. Ensure the data directory exists before creating the file. Use proper JSON formatting for human readability (indentation). Include timezone-aware ISO 8601 timestamp format for last_run_at field using JST (UTC+09:00).",
+            "status": "done",
+            "testStrategy": "Unit test: Verify state file is created with correct structure when it doesn't exist. Test that existing state file is not overwritten. Validate JSON is properly formatted and parseable. Check timestamp format is ISO 8601 with timezone.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:28:43.340Z"
+          },
+          {
+            "id": 2,
+            "title": "Implement StateManager class with load, save, and query methods",
+            "description": "Create StateManager class in scripts/state.py with methods for loading, saving, and querying the state file",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement StateManager class with methods: `load_state(state_file: str = 'data/processed_articles.json') -> dict` - reads and parses JSON state file, returns state dict or initializes if missing; `save_state(state: dict, state_file: str) -> None` - writes state dict to JSON file with atomic write (write to temp file, then rename); `is_processed(article_id: str, state: dict) -> bool` - checks if article_id exists in processed_ids list; `mark_processed(article_id: str, state: dict) -> dict` - adds article_id to processed_ids and updates last_run_at timestamp, returns updated state dict. Use type hints for all methods. Implement atomic file writes using tempfile and os.rename to prevent corruption during write operations.",
+            "status": "done",
+            "testStrategy": "Unit tests: Test load_state with existing/missing files. Test save_state creates valid JSON. Test is_processed returns correct boolean for present/absent IDs. Test mark_processed adds new IDs and updates timestamp. Test atomic write behavior by simulating interruption.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:28:33.305Z"
+          },
+          {
+            "id": 3,
+            "title": "Implement article ID deduplication logic and crawler filtering",
+            "description": "Add deduplication filtering to the crawler to skip already-processed articles based on state file",
+            "dependencies": [
+              2
+            ],
+            "details": "Integrate StateManager into `scripts/crawl.py`: Load state at start of crawl using `StateManager.load_state()`. Before processing each article, check if article ID is already processed using `is_processed(article_id, state)`. Skip articles that return True (already processed). After successfully generating a post for an article, call `mark_processed(article_id, state)` to add it to the processed list. Save updated state using `save_state(state, state_file)` after each successful article processing. Ensure state is saved even if subsequent articles fail (save after each article, not batch at end). Log skipped articles with INFO level: 'Skipping already processed article: {article_id}'.",
+            "status": "done",
+            "testStrategy": "Integration test: Run crawler twice on same article set, verify second run skips all articles from first run. Verify processed_ids list grows correctly. Check that partially failed runs don't lose state (state saved incrementally). Manually verify state file contains expected article IDs after test runs.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:28:36.641Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement state file corruption recovery and ensure git-committable format",
+            "description": "Add robust error handling for corrupted state files and ensure state file format is suitable for git commits",
+            "dependencies": [
+              2
+            ],
+            "details": "Add corruption recovery to StateManager.load_state(): Wrap JSON parsing in try-except to catch json.JSONDecodeError. If parse fails, backup corrupted file to `data/processed_articles.json.backup.{timestamp}`, log WARNING with corruption details, and return fresh initialized state `{\"processed_ids\": [], \"last_run_at\": null}`. Ensure JSON is formatted with indentation (indent=2) for human readability and clean git diffs. Use consistent field ordering in JSON output (processed_ids before last_run_at). Add validation to check state dict has required fields (processed_ids as list, last_run_at as string or null). Document in code comments that state file should be committed to git after each run. Ensure newline at end of file for POSIX compliance.",
+            "status": "done",
+            "testStrategy": "Unit tests: Test load_state with malformed JSON, verify it creates backup and returns fresh state. Test with missing required fields. Verify saved JSON has proper indentation and field ordering. Integration test: Manually corrupt state file, run crawler, verify recovery and backup creation. Check git diff readability of state file changes.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:28:40.012Z"
+          }
+        ],
+        "complexity": 4,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down state management into: (1) JSON state file structure design and initialization, (2) StateManager class with load/save/query methods, (3) Article ID deduplication logic and filtering, (4) State file corruption recovery and atomic updates. Ensure state file is git-committable and human-readable.",
+        "updatedAt": "2026-07-19T07:28:43.340Z"
+      },
+      {
+        "id": "6",
+        "title": "Create orchestrator script to run end-to-end pipeline",
+        "description": "Build main entry point script that coordinates crawler, extractor, generator, and state management in correct sequence with error handling and logging",
+        "details": "Create `scripts/run_daily.py` as main entry point:\n- Flow: Load state → Crawl articles → Filter processed → Extract (keywords+summary) → Generate posts → Update state → Commit state file\n- Pseudo-code:\n  ```python\n  def main():\n      # Setup logging to stdout\n      logger = setup_logging()\n      \n      # Load state\n      state = load_state()\n      \n      # Crawl\n      articles = crawl_etnews_section('https://m.etnews.com/news/section.html?id1=04')\n      logger.info(f'Crawled {len(articles)} articles')\n      \n      # Filter processed\n      new_articles = [a for a in articles if not is_processed(a.id, state)]\n      logger.info(f'{len(new_articles)} new articles to process')\n      \n      if not new_articles:\n          logger.info('No new articles, exiting')\n          return\n      \n      # Process each article\n      for article in new_articles:\n          try:\n              keywords = extract_keywords_tfidf(article.raw_text)\n              summary = summarize_textrank(article.raw_text)\n              post_path = generate_post(article, keywords, summary)\n              mark_processed(article.id, state)\n              logger.info(f'Generated post: {post_path}')\n          except Exception as e:\n              logger.error(f'Failed to process article {article.id}: {e}')\n              continue  # Skip failed article, process others\n      \n      # Save state\n      save_state(state)\n      logger.info('Pipeline completed')\n  ```\n- Add CLI argument: `--dry-run` to test without writing files/state\n- Error handling: catch exceptions per article to avoid failing entire batch\n- Log summary statistics: articles crawled, processed, skipped, failed\n- Exit code 0 on success, 1 on critical failure (no articles crawled, state corruption)",
+        "testStrategy": "End-to-end integration test: Run script locally with real ETNews data, verify complete flow works. Test dry-run mode. Test error scenarios (network failure, invalid article data). Verify state file updates correctly. Run multiple times to confirm dedup works. Check generated posts render correctly in Jekyll.",
+        "priority": "high",
+        "dependencies": [
+          "4",
+          "5"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement logging setup and configuration module",
+            "description": "Create logging configuration system with structured output, log levels, and format specifications for the orchestrator script",
+            "dependencies": [],
+            "details": "Create logging setup in `scripts/run_daily.py`:\n- Use Python's logging module with StreamHandler for stdout output\n- Format: `%(asctime)s - %(levelname)s - %(message)s` for timestamp, level, and message\n- Default level: INFO for production, DEBUG when --verbose flag is used\n- Add structured logging helper functions: log_crawl_stats(count), log_processing_stats(new, skipped, failed), log_article_result(article_id, status, message)\n- Create separate logger instance named 'etnews_pipeline' to avoid conflicts\n- Add file handler option (optional) to write logs to `logs/pipeline.log` with rotation\n- Include exception logging with full traceback for debugging failed articles",
+            "status": "done",
+            "testStrategy": "Test logging output appears correctly in stdout. Test different log levels (INFO, DEBUG, ERROR). Test structured logging functions format data correctly. Verify exception logging includes full tracebacks. Test log file rotation if file handler is enabled.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:12.154Z"
+          },
+          {
+            "id": 2,
+            "title": "Build core pipeline flow coordinator",
+            "description": "Implement main pipeline orchestration logic that coordinates state loading, crawling, filtering, extraction, generation, and state saving in correct sequence",
+            "dependencies": [
+              1
+            ],
+            "details": "Create main() function in `scripts/run_daily.py`:\n- Import modules: state.py (load_state, save_state, is_processed, mark_processed), crawl.py (crawl_etnews_section), extract.py (extract_keywords_tfidf, summarize_textrank), generate_post.py (generate_post)\n- Flow sequence:\n  1. Setup logging using subtask 1's logger\n  2. Load state from processed_articles.json\n  3. Crawl articles from ETNews section URL\n  4. Filter new articles: `new_articles = [a for a in articles if not is_processed(a.id, state)]`\n  5. Early exit if no new articles (log info message, return 0)\n  6. For each new article: extract keywords, summarize, generate post, mark processed\n  7. Save updated state to disk\n  8. Log final summary statistics\n- Return exit code 0 on success\n- Add configuration loading from config.yml (if task 9 completed) or use hardcoded defaults",
+            "status": "done",
+            "testStrategy": "Integration test with mocked components: verify flow calls each step in correct order. Test early exit when no new articles. Test state is loaded before processing and saved after. Verify pipeline runs end-to-end with real dependencies integrated. Check exit code 0 on successful completion.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:15.434Z"
+          },
+          {
+            "id": 3,
+            "title": "Implement per-article error handling and retry logic",
+            "description": "Add robust error handling for individual article processing failures to ensure one bad article doesn't stop the entire batch, with optional retry mechanism",
+            "dependencies": [
+              2
+            ],
+            "details": "Enhance article processing loop in main():\n- Wrap each article's processing in try/except block\n- Catch specific exceptions: requests.RequestException (network errors), BeautifulSoupParseError (HTML parsing), ValueError (invalid article data), KeyError (missing required fields)\n- Log detailed error with article ID, error type, and message: `logger.error(f'Failed to process article {article.id}: {type(e).__name__}: {e}')`\n- Continue to next article on error (don't re-raise)\n- Track failed articles in list for final summary: `failed_articles.append((article.id, str(e)))`\n- Optional: Add simple retry logic (max 2 retries) for network errors only\n- Log final statistics: total processed, successful, failed, skipped\n- Don't mark failed articles as processed so they're retried in next run\n- Return exit code 0 even if some articles fail (partial success), only return 1 on critical failures",
+            "status": "done",
+            "testStrategy": "Unit test error handling with mocked article processing functions that raise different exceptions. Verify pipeline continues after exception. Test retry logic for network errors. Verify failed articles are not marked as processed in state. Test final statistics logging includes failed count. Verify exit code 0 on partial success.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:18.800Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement dry-run mode for testing without side effects",
+            "description": "Add --dry-run CLI flag that executes the full pipeline without writing posts to disk or updating state file, for safe testing",
+            "dependencies": [
+              2
+            ],
+            "details": "Add argparse CLI argument handling:\n- Add `--dry-run` boolean flag: `parser.add_argument('--dry-run', action='store_true', help='Run pipeline without writing files or updating state')`\n- Add `--verbose` boolean flag for debug logging (bonus)\n- Pass dry_run flag to all write operations:\n  - In generate_post(): if dry_run, log post content preview instead of writing file\n  - In mark_processed(): if dry_run, log 'Would mark article X as processed' instead of updating state dict\n  - In save_state(): if dry_run, log 'Would save state with X new entries' instead of writing JSON\n- Log clearly at start: 'Running in DRY-RUN mode - no files will be written'\n- Log what would happen for each operation: 'Would generate post: _posts/2025-07-19-article-title.md'\n- Still execute crawling, extraction, and generation logic to test full pipeline\n- Helpful for testing changes without polluting _posts/ directory or state",
+            "status": "done",
+            "testStrategy": "Test --dry-run flag is parsed correctly. Run pipeline with --dry-run and verify no files are created in _posts/ and state file is not modified. Verify all pipeline logic still executes (crawl, extract, generate). Check dry-run log messages appear. Test without --dry-run to confirm normal mode still writes files.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:22.157Z"
+          },
+          {
+            "id": 5,
+            "title": "Implement exit code handling and failure reporting",
+            "description": "Add comprehensive exit code logic and failure summary reporting to distinguish between success, partial success, and critical failures",
+            "dependencies": [
+              3
+            ],
+            "details": "Define exit code strategy:\n- Exit 0: All articles processed successfully OR partial success (some failed but pipeline completed)\n- Exit 1: Critical failure that prevents pipeline from running (network down, state file corrupted, no articles crawled, config invalid)\n- Detect critical failures:\n  - crawl_etnews_section() returns empty list and raises exception → critical (network issue)\n  - load_state() fails with corrupted JSON → critical (data corruption)\n  - All articles fail to process (100% failure rate) → critical\n- Add final summary report before exit:\n  ```\n  Pipeline Summary:\n  - Articles crawled: X\n  - New articles: Y\n  - Successfully processed: Z\n  - Failed: N\n  - Skipped (already processed): M\n  ```\n- If critical failure, log ERROR level message and return 1\n- If partial success, log WARNING with failed article IDs and return 0\n- If full success, log INFO summary and return 0",
+            "status": "done",
+            "testStrategy": "Test exit code 0 on full success. Test exit code 0 on partial success (some articles fail). Test exit code 1 on critical failures: mock network failure, corrupt state file, zero articles crawled. Verify summary report includes correct statistics. Test failure reporting lists failed article IDs.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:25.572Z"
+          },
+          {
+            "id": 6,
+            "title": "Create end-to-end integration test with real ETNews data",
+            "description": "Build comprehensive integration test that runs the full pipeline against real ETNews website and verifies state persistence across multiple runs",
+            "dependencies": [
+              5,
+              4
+            ],
+            "details": "Create integration test script `tests/test_integration.py`:\n- Test setup: Create temporary test directory with clean state file\n- Test 1 - First run: Execute run_daily.py against real ETNews URL, verify posts are generated in _posts/, verify state file created with processed article IDs\n- Test 2 - Second run (dedup test): Run pipeline again immediately, verify no duplicate posts generated, verify state file prevents reprocessing same articles\n- Test 3 - Dry-run mode: Run with --dry-run flag, verify no files written but pipeline executes\n- Test 4 - Error recovery: Manually corrupt one article's data, verify pipeline continues and processes other articles\n- Test 5 - State persistence: Verify state file format is valid JSON, contains expected fields (article_id, processed_at timestamp)\n- Verify generated posts: Check frontmatter YAML is valid, content includes keywords and summary, filename format is correct\n- Run test on CI: Add this integration test to GitHub Actions workflow as pre-deployment check\n- Note: Integration test requires network access and may be slow (~1-2 min), mark as such",
+            "status": "done",
+            "testStrategy": "Run integration test locally and verify all 5 test cases pass. Test on CI in GitHub Actions. Manually inspect generated posts for quality. Verify state file persists correctly across runs. Test failure scenarios (network timeout, invalid HTML) to ensure graceful degradation.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T07:53:29.017Z"
+          }
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 6,
+        "expansionPrompt": "Break down the orchestrator into: (1) Logging setup and configuration, (2) Pipeline flow coordination (load state → crawl → filter → extract → generate → save), (3) Per-article error handling and retry logic, (4) Dry-run mode implementation for testing, (5) Exit code and failure reporting, (6) Integration testing with real ETNews data and state persistence across runs.",
+        "updatedAt": "2026-07-19T07:53:29.017Z"
+      },
+      {
+        "id": "7",
+        "title": "Create Python dependencies file and project structure",
+        "description": "Set up Python project structure with requirements.txt listing all necessary dependencies with pinned versions",
+        "details": "Create project structure and `requirements.txt`:\n- Directory structure:\n  ```\n  /\n  ├── scripts/\n  │   ├── __init__.py\n  │   ├── crawl.py\n  │   ├── extract.py\n  │   ├── generate_post.py\n  │   ├── state.py\n  │   └── run_daily.py\n  ├── data/\n  │   └── processed_articles.json\n  ├── _posts/  (generated)\n  └── requirements.txt\n  ```\n- requirements.txt contents (with version pinning for reproducibility):\n  ```\n  requests==2.31.0\n  beautifulsoup4==4.12.3\n  lxml==5.1.0  # faster HTML parser for BeautifulSoup\n  konlpy==0.6.0\n  JPype1==1.5.0  # KoNLPy JVM dependency\n  scikit-learn==1.4.0  # for TF-IDF\n  sumy==0.11.0  # TextRank summarization\n  nltk==3.8.1  # sumy dependency\n  python-slugify==8.0.4  # slug generation\n  PyYAML==6.0.1  # YAML parsing/generation\n  ```\n- Create `.gitignore` additions for Python:\n  ```\n  __pycache__/\n  *.pyc\n  *.pyo\n  .pytest_cache/\n  venv/\n  .env\n  ```\n- Add `scripts/__init__.py` to make it a Python package\n- Document installation: `pip install -r requirements.txt`\n- Note: KoNLPy requires Java JDK (document in README or comments)",
+        "testStrategy": "Test installation: Create fresh virtual environment, run `pip install -r requirements.txt`, verify all packages install without errors. Test import statements from each module. Verify version pins don't have conflicts.",
+        "priority": "medium",
+        "dependencies": [
+          "2",
+          "3",
+          "4"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create directory structure and __init__.py files",
+            "description": "Set up the complete Python project directory structure including scripts/, data/, and _posts/ directories with proper __init__.py files to make scripts a Python package",
+            "dependencies": [],
+            "details": "Create the following directory structure:\n- /scripts/ directory with __init__.py to make it a Python package\n- /data/ directory for processed_articles.json state file\n- /_posts/ directory (will be generated by the pipeline)\n- Create empty __init__.py in scripts/ directory\n- Ensure proper permissions and verify directories are created successfully",
+            "status": "done",
+            "testStrategy": "Verify all directories exist with correct names. Confirm scripts/__init__.py exists and is a valid empty Python file. Test Python can import from scripts package with 'import scripts' command.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:55:22.563Z"
+          },
+          {
+            "id": 2,
+            "title": "Create requirements.txt with pinned dependency versions",
+            "description": "Generate requirements.txt file listing all necessary Python dependencies with pinned versions for reproducibility, including requests, beautifulsoup4, lxml, konlpy, JPype1, scikit-learn, sumy, nltk, python-slugify, and PyYAML",
+            "dependencies": [
+              1
+            ],
+            "details": "Create requirements.txt with pinned versions:\n```\nrequests==2.31.0\nbeautifulsoup4==4.12.3\nlxml==5.1.0  # faster HTML parser for BeautifulSoup\nkonlpy==0.6.0\nJPype1==1.5.0  # KoNLPy JVM dependency\nscikit-learn==1.4.0  # for TF-IDF\nsumy==0.11.0  # TextRank summarization\nnltk==3.8.1  # sumy dependency\npython-slugify==8.0.4  # slug generation\nPyYAML==6.0.1  # YAML parsing/generation\n```\nInclude inline comments explaining key dependencies. Document that KoNLPy requires Java JDK installed on the system.",
+            "status": "done",
+            "testStrategy": "Create fresh virtual environment, run 'pip install -r requirements.txt', verify all packages install without errors or version conflicts. Test import statements for each package. Verify no dependency resolver conflicts occur.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:55:25.986Z"
+          },
+          {
+            "id": 3,
+            "title": "Update .gitignore for Python artifacts and document JVM requirement",
+            "description": "Add Python-specific entries to .gitignore to exclude compiled files, cache directories, and virtual environments. Document the Java JDK requirement for KoNLPy in comments or README",
+            "dependencies": [
+              2
+            ],
+            "details": "Add to .gitignore:\n```\n# Python artifacts\n__pycache__/\n*.pyc\n*.pyo\n.pytest_cache/\nvenv/\n.env\n```\nDocument JVM requirement: Add comment in requirements.txt or create installation note explaining that KoNLPy requires Java JDK (version 8 or higher) to be installed on the system. Include installation command reference: 'pip install -r requirements.txt'. Consider adding brief setup instructions as code comments.",
+            "status": "done",
+            "testStrategy": "Verify .gitignore entries prevent Python cache files from being tracked by git. Test 'git status' after creating __pycache__ directory to confirm it's ignored. Verify installation documentation is clear and mentions Java JDK requirement prominently.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:55:29.439Z"
+          }
+        ],
+        "complexity": 3,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down project setup into: (1) Directory structure creation (scripts/, data/, __init__.py files), (2) requirements.txt with pinned versions for all dependencies (requests, beautifulsoup4, konlpy, scikit-learn, sumy, python-slugify, PyYAML), (3) .gitignore updates for Python artifacts and documentation of JVM/Java requirement for KoNLPy.",
+        "updatedAt": "2026-07-19T08:55:29.439Z"
+      },
+      {
+        "id": "8",
+        "title": "Build GitHub Actions workflow for daily automation",
+        "description": "Create GitHub Actions workflow that runs daily on schedule, executes the pipeline script, and commits generated posts automatically",
+        "details": "Create `.github/workflows/daily-post.yml`:\n```yaml\nname: Daily ETNews Digest\n\non:\n  schedule:\n    - cron: '0 1 * * *'  # Run daily at 1 AM UTC (10 AM KST)\n  workflow_dispatch:  # Allow manual trigger\n\njobs:\n  generate-post:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write  # Required to push commits\n    \n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        with:\n          token: ${{ secrets.GITHUB_TOKEN }}\n      \n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n          cache: 'pip'\n      \n      - name: Install Java (for KoNLPy)\n        uses: actions/setup-java@v4\n        with:\n          distribution: 'temurin'\n          java-version: '11'\n      \n      - name: Install Python dependencies\n        run: pip install -r requirements.txt\n      \n      - name: Run daily pipeline\n        run: python scripts/run_daily.py\n      \n      - name: Commit and push if changes\n        run: |\n          git config --local user.email \"github-actions[bot]@users.noreply.github.com\"\n          git config --local user.name \"github-actions[bot]\"\n          git add _posts/ data/processed_articles.json\n          git diff --staged --quiet || git commit -m \"chore: auto-generated daily digest [skip ci]\"\n          git push\n```\n- Cron schedule: 1 AM UTC = 10 AM KST (Korean business hours)\n- workflow_dispatch enables manual testing via GitHub UI\n- Commit message includes `[skip ci]` to prevent recursive workflow triggers\n- Use actions/cache for pip to speed up dependency installation\n- Only commit if there are actual changes (git diff --staged --quiet)\n- Error handling: workflow will fail visibly if pipeline script exits with error code",
+        "testStrategy": "Test workflow_dispatch manual trigger first to verify workflow runs successfully. Check workflow logs for each step. Verify commits appear with correct bot author. Test scheduled trigger by temporarily setting cron to run in a few minutes. Confirm GitHub Pages rebuilds after workflow push.",
+        "priority": "high",
+        "dependencies": [
+          "6",
+          "7"
+        ],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create workflow file with cron schedule and triggers",
+            "description": "Create `.github/workflows/daily-post.yml` with cron schedule (1 AM UTC = 10 AM KST) and workflow_dispatch for manual testing",
+            "dependencies": [],
+            "details": "Set up the GitHub Actions workflow YAML file structure with:\n- name: 'Daily ETNews Digest'\n- on.schedule with cron: '0 1 * * *' for daily execution at 10 AM KST\n- on.workflow_dispatch for manual trigger capability\n- jobs.generate-post with runs-on: ubuntu-latest\n- permissions.contents: write for git push capability\nThis establishes the workflow foundation and execution triggers.",
+            "status": "done",
+            "testStrategy": "Verify YAML syntax is valid. Test workflow_dispatch manual trigger from GitHub Actions UI to confirm workflow appears and can be triggered manually.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:56:55.120Z"
+          },
+          {
+            "id": 2,
+            "title": "Configure Python environment setup with caching",
+            "description": "Add Python 3.11 setup step with pip dependency caching using actions/setup-python and actions/cache",
+            "dependencies": [
+              1
+            ],
+            "details": "Add workflow steps:\n- actions/checkout@v4 with token: ${{ secrets.GITHUB_TOKEN }}\n- actions/setup-python@v5 with python-version: '3.11' and cache: 'pip'\nThe built-in cache parameter in setup-python automatically caches pip dependencies based on requirements.txt hash, speeding up subsequent runs significantly.",
+            "status": "done",
+            "testStrategy": "Run workflow manually and check logs to verify Python 3.11 is installed. Verify pip cache is created on first run and reused on second run (check step timing improvement).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:56:58.602Z"
+          },
+          {
+            "id": 3,
+            "title": "Configure Java environment for KoNLPy dependency",
+            "description": "Add Java 11 setup step using actions/setup-java for KoNLPy's JVM dependency (JPype1)",
+            "dependencies": [
+              1
+            ],
+            "details": "Add workflow step:\n- actions/setup-java@v4 with distribution: 'temurin' and java-version: '11'\nKoNLPy requires Java runtime for its morphological analysis engine. Temurin (formerly AdoptOpenJDK) is the recommended open-source JDK distribution for GitHub Actions.",
+            "status": "done",
+            "testStrategy": "Check workflow logs to verify Java 11 is installed. Verify KoNLPy can initialize properly in subsequent pip install step (no JVM errors).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:57:02.366Z"
+          },
+          {
+            "id": 4,
+            "title": "Add dependency installation step",
+            "description": "Create step to install Python dependencies from requirements.txt",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Add workflow step:\n- name: Install Python dependencies\n- run: pip install -r requirements.txt\nThis installs all pipeline dependencies including requests, beautifulsoup4, konlpy, scikit-learn, pyyaml. Must run after both Python and Java setup since KoNLPy requires both.",
+            "status": "done",
+            "testStrategy": "Check workflow logs to verify all dependencies install without errors. Verify KoNLPy installation completes successfully (requires Java). Check for version compatibility warnings.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:57:05.754Z"
+          },
+          {
+            "id": 5,
+            "title": "Add pipeline execution step",
+            "description": "Create step to run the daily pipeline script (scripts/run_daily.py)",
+            "dependencies": [
+              4
+            ],
+            "details": "Add workflow step:\n- name: Run daily pipeline\n- run: python scripts/run_daily.py\nThis executes the main pipeline logic that crawls articles, extracts keywords, generates summaries, and creates the Jekyll post. The workflow will fail visibly if the script exits with non-zero code.",
+            "status": "done",
+            "testStrategy": "Run workflow manually and verify pipeline script executes successfully. Check logs for expected output (crawled articles, extracted keywords, generated post). Verify new post file is created in _posts/ directory.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:57:09.190Z"
+          },
+          {
+            "id": 6,
+            "title": "Implement conditional git commit and push logic",
+            "description": "Add steps to configure git, commit changes only if they exist, and push with [skip ci] tag",
+            "dependencies": [
+              5
+            ],
+            "details": "Add workflow steps:\n- git config --local user.email 'github-actions[bot]@users.noreply.github.com'\n- git config --local user.name 'github-actions[bot]'\n- git add _posts/ data/processed_articles.json\n- git diff --staged --quiet || git commit -m 'chore: auto-generated daily digest [skip ci]'\n- git push\n\nThe 'git diff --staged --quiet' returns exit code 0 if no changes, preventing empty commits. The [skip ci] tag prevents recursive workflow triggers.",
+            "status": "done",
+            "testStrategy": "Test with changes: verify commit is created with bot author and [skip ci] message. Test without changes: verify no commit is created (workflow succeeds but skips commit). Verify push succeeds and appears in repository. Confirm [skip ci] prevents workflow recursion.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:57:12.501Z"
+          },
+          {
+            "id": 7,
+            "title": "Test workflow end-to-end and verify GitHub Pages rebuild",
+            "description": "Perform comprehensive workflow testing including manual trigger, scheduled run verification, and GitHub Pages rebuild confirmation",
+            "dependencies": [
+              6
+            ],
+            "details": "Testing checklist:\n1. Trigger workflow manually via workflow_dispatch and verify all steps pass\n2. Check commit appears with github-actions[bot] author\n3. Temporarily modify cron to run in 5 minutes ('5 * * * *') and verify scheduled trigger works\n4. Restore original cron schedule ('0 1 * * *')\n5. Verify GitHub Pages rebuilds automatically after workflow push (check Pages build in Actions tab)\n6. Verify generated post appears on live site\n7. Monitor workflow for several days to ensure reliability",
+            "status": "pending",
+            "testStrategy": "Follow testing checklist completely. Verify workflow passes all steps. Check GitHub Actions logs for errors. Confirm generated posts appear on GitHub Pages site. Test failure scenarios by introducing temporary errors to verify workflow fails visibly.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 7,
+        "expansionPrompt": "Break down GitHub Actions workflow into: (1) Workflow file creation with cron schedule and workflow_dispatch trigger, (2) Python and Java environment setup (actions/setup-python, actions/setup-java for KoNLPy), (3) Dependency caching strategy with actions/cache, (4) Pipeline script execution step, (5) Git configuration and conditional commit logic (only if changes exist), (6) Push with proper permissions and [skip ci] tag, (7) Testing with manual trigger and verifying GitHub Pages rebuild.",
+        "updatedAt": "2026-07-19T08:57:12.501Z"
+      },
+      {
+        "id": "9",
+        "title": "Add configuration file for pipeline parameters",
+        "description": "Create YAML configuration file to centralize tunable parameters (extraction methods, keyword count, summary length) and implement config loading in scripts",
+        "details": "Create `config.yml`:\n```yaml\n# ETNews crawler configuration\ncrawler:\n  section_url: 'https://m.etnews.com/news/section.html?id1=04'\n  lookback_days: 7  # How many days back to check for articles\n  request_timeout: 30  # seconds\n  max_retries: 3\n\n# Extraction configuration\nextraction:\n  keyword_method: 'tfidf'  # Options: tfidf, keybert, llm (future)\n  keyword_count: 7\n  \n  summarization_method: 'textrank'  # Options: textrank, llm (future)\n  summary_sentences: 4\n\n# Post generation configuration\npost:\n  output_mode: 'per_article'  # Options: per_article, daily_digest (future)\n  categories: ['etnews', 'ai-sw']\n  layout: 'post'\n\n# State management\nstate:\n  file_path: 'data/processed_articles.json'\n```\n\nAdd config loading to `scripts/run_daily.py`:\n- Install PyYAML (already in requirements.txt)\n- Load config at startup: `config = yaml.safe_load(open('config.yml'))`\n- Pass config values to functions:\n  - `crawl_etnews_section(config['crawler']['section_url'])`\n  - `extract_keywords_tfidf(text, n_keywords=config['extraction']['keyword_count'])`\n  - `summarize_textrank(text, sentence_count=config['extraction']['summary_sentences'])`\n- Validate config on load: check required fields exist, valid enum values\n- Provide sensible defaults if config file missing (use hardcoded values from MVP)\n- Document config options in comments",
+        "testStrategy": "Test config loading with valid YAML. Test with missing config file (should use defaults). Test with invalid config values (should fail with clear error). Test changing each config parameter affects pipeline output correctly. Run pipeline with different keyword counts and summary lengths.",
+        "priority": "medium",
+        "dependencies": [
+          "6"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and create YAML config file structure",
+            "description": "Create config.yml with all tunable parameters organized into logical sections (crawler, extraction, post generation, state management)",
+            "dependencies": [],
+            "details": "Create `config.yml` in project root with the following structure:\n\n```yaml\n# ETNews crawler configuration\ncrawler:\n  section_url: 'https://m.etnews.com/news/section.html?id1=04'\n  lookback_days: 7\n  request_timeout: 30\n  max_retries: 3\n\n# Extraction configuration\nextraction:\n  keyword_method: 'tfidf'  # Options: tfidf, keybert, llm\n  keyword_count: 7\n  summarization_method: 'textrank'  # Options: textrank, llm\n  summary_sentences: 4\n\n# Post generation configuration\npost:\n  output_mode: 'per_article'\n  categories: ['etnews', 'ai-sw']\n  layout: 'post'\n\n# State management\nstate:\n  file_path: 'data/processed_articles.json'\n```\n\nAdd inline comments documenting each parameter's purpose and valid values. Ensure PyYAML is listed in requirements.txt (already present).",
+            "status": "done",
+            "testStrategy": "Validate YAML syntax with `python -c \"import yaml; yaml.safe_load(open('config.yml'))\"`. Verify file structure matches documented schema. Check all required sections are present.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T08:59:54.247Z"
+          },
+          {
+            "id": 2,
+            "title": "Implement config loading and validation logic",
+            "description": "Create config loader module with validation, error handling, and default fallback values",
+            "dependencies": [
+              1
+            ],
+            "details": "Create `scripts/config.py` module:\n\n```python\nimport yaml\nfrom pathlib import Path\nfrom typing import Dict, Any\n\nDEFAULT_CONFIG = {\n    'crawler': {'section_url': 'https://m.etnews.com/news/section.html?id1=04', 'lookback_days': 7, 'request_timeout': 30, 'max_retries': 3},\n    'extraction': {'keyword_method': 'tfidf', 'keyword_count': 7, 'summarization_method': 'textrank', 'summary_sentences': 4},\n    'post': {'output_mode': 'per_article', 'categories': ['etnews', 'ai-sw'], 'layout': 'post'},\n    'state': {'file_path': 'data/processed_articles.json'}\n}\n\ndef load_config(config_path: str = 'config.yml') -> Dict[str, Any]:\n    \"\"\"Load and validate configuration file with fallback to defaults.\"\"\"\n    if not Path(config_path).exists():\n        print(f\"Warning: {config_path} not found, using defaults\")\n        return DEFAULT_CONFIG\n    \n    with open(config_path) as f:\n        config = yaml.safe_load(f)\n    \n    # Validate required sections\n    required_sections = ['crawler', 'extraction', 'post', 'state']\n    for section in required_sections:\n        if section not in config:\n            raise ValueError(f\"Missing required config section: {section}\")\n    \n    # Validate enum values\n    valid_keyword_methods = ['tfidf', 'keybert', 'llm']\n    if config['extraction']['keyword_method'] not in valid_keyword_methods:\n        raise ValueError(f\"Invalid keyword_method: {config['extraction']['keyword_method']}\")\n    \n    valid_summarization_methods = ['textrank', 'llm']\n    if config['extraction']['summarization_method'] not in valid_summarization_methods:\n        raise ValueError(f\"Invalid summarization_method: {config['extraction']['summarization_method']}\")\n    \n    return config\n```\n\nInclude validation for all enum fields and required keys.",
+            "status": "done",
+            "testStrategy": "Unit test with valid config file (should load successfully). Test with missing config file (should return defaults with warning). Test with missing required section (should raise ValueError). Test with invalid enum values (should raise ValueError). Test with malformed YAML (should raise yaml.YAMLError).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:00:26.488Z"
+          },
+          {
+            "id": 3,
+            "title": "Integrate config loading into orchestrator script",
+            "description": "Update run_daily.py to load configuration at startup and pass config values to all pipeline functions",
+            "dependencies": [
+              2
+            ],
+            "details": "Update `scripts/run_daily.py`:\n\n```python\nfrom config import load_config\n\ndef main():\n    # Load configuration\n    config = load_config('config.yml')\n    logger.info(f\"Loaded config: {config}\")\n    \n    # Load state with config path\n    state = load_state(config['state']['file_path'])\n    \n    # Crawl with config parameters\n    articles = crawl_etnews_section(\n        url=config['crawler']['section_url'],\n        lookback_days=config['crawler']['lookback_days'],\n        timeout=config['crawler']['request_timeout'],\n        max_retries=config['crawler']['max_retries']\n    )\n    \n    # Extract with config parameters\n    for article in new_articles:\n        keywords = extract_keywords_tfidf(\n            article['text'],\n            n_keywords=config['extraction']['keyword_count']\n        )\n        summary = summarize_textrank(\n            article['text'],\n            sentence_count=config['extraction']['summary_sentences']\n        )\n    \n    # Generate posts with config\n    generate_posts(\n        articles,\n        categories=config['post']['categories'],\n        layout=config['post']['layout']\n    )\n```\n\nUpdate function signatures in crawl.py, extract.py, generate_post.py to accept config parameters instead of hardcoded values.",
+            "status": "done",
+            "testStrategy": "Run orchestrator with default config.yml and verify pipeline executes correctly. Check logs show config values being used. Verify all config parameters are passed correctly to functions. Test that changing config values affects pipeline behavior (e.g., change keyword_count from 7 to 5, verify output has 5 keywords).",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:04:27.209Z"
+          },
+          {
+            "id": 4,
+            "title": "Test configuration system with different parameter values",
+            "description": "Validate that configuration changes correctly affect pipeline output and document config options",
+            "dependencies": [
+              3
+            ],
+            "details": "Create comprehensive test suite for config system:\n\n1. Test different keyword_count values (3, 5, 7, 10) and verify output keyword lists have correct lengths\n2. Test different summary_sentences values (2, 4, 6) and verify summaries have correct number of sentences\n3. Test lookback_days parameter affects article filtering (set to 1 day, verify only recent articles processed)\n4. Test timeout and max_retries parameters (mock network delays to verify retry logic)\n5. Test invalid configurations trigger appropriate errors\n6. Document all config options in config.yml with detailed comments\n\nAdd a section to README.md:\n```markdown\n## Configuration\n\nEdit `config.yml` to customize pipeline behavior:\n\n- `crawler.keyword_count`: Number of keywords to extract (default: 7)\n- `extraction.summary_sentences`: Summary length in sentences (default: 4)\n- `crawler.lookback_days`: Days to look back for articles (default: 7)\n- See config.yml for all available options\n```\n\nCreate example alternative configs for testing (e.g., `config.aggressive.yml` with higher keyword counts).",
+            "status": "done",
+            "testStrategy": "Run end-to-end pipeline with config.yml, save output. Create config.test.yml with different values (keyword_count=5, summary_sentences=2), run pipeline again, verify outputs differ as expected. Test with each parameter changed individually to isolate effects. Verify documentation matches actual config behavior.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:04:30.562Z"
+          }
+        ],
+        "complexity": 4,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down configuration system into: (1) YAML config file structure design with all tunable parameters (crawler, extraction, post generation settings), (2) Config loading and validation logic with PyYAML, (3) Default value fallback handling, (4) Integration into orchestrator and extraction modules with parameter passing. Test with different config values.",
+        "updatedAt": "2026-07-19T09:04:30.562Z"
+      },
+      {
+        "id": "10",
+        "title": "Add documentation and local testing instructions",
+        "description": "Create comprehensive README with setup instructions, architecture overview, and local testing guide for the automated pipeline",
+        "details": "Create/update `README.md` with sections:\n\n1. **Project Overview**: Brief description of automated ETNews digest blog\n2. **Architecture**: Diagram/description of pipeline flow (crawl → extract → generate → commit)\n3. **Setup**:\n   - Prerequisites: Python 3.11+, Java 11+ (for KoNLPy)\n   - Local setup: `pip install -r requirements.txt`\n   - Configuration: editing `config.yml`\n4. **Local Testing**:\n   - Run pipeline manually: `python scripts/run_daily.py`\n   - Test Jekyll locally: `bundle exec jekyll serve`\n   - Dry run mode: `python scripts/run_daily.py --dry-run`\n5. **GitHub Actions**:\n   - Automatic daily schedule (1 AM UTC / 10 AM KST)\n   - Manual trigger via workflow_dispatch\n   - Viewing logs and troubleshooting\n6. **Configuration Reference**: Document each config.yml option\n7. **Troubleshooting**:\n   - KoNLPy/JVM setup issues\n   - Network/crawl failures\n   - State file corruption recovery\n8. **Future Enhancements** (Phase 3+): KeyBERT, LLM integration, daily digest mode\n\nAdd inline code comments:\n- Docstrings for all public functions\n- Comments explaining complex logic (HTML parsing selectors, TF-IDF calculation)\n- TODOs for Phase 3+ features\n\nCreate `CONTRIBUTING.md` if planning to open source:\n- How to report issues\n- How to test changes locally\n- Pull request guidelines",
+        "testStrategy": "Manual review: Follow README instructions on fresh clone to verify they work. Test all documented commands. Have another developer (or user) try setup to catch unclear instructions. Verify links and references are correct. Check code comments are accurate and helpful.",
+        "priority": "medium",
+        "dependencies": [
+          "8",
+          "9"
+        ],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create README.md with project overview and architecture diagram",
+            "description": "Write comprehensive README.md with project overview section explaining the automated ETNews digest blog purpose, and create an architecture section with a text-based diagram showing the pipeline flow (crawl → extract → generate → commit). Include technology stack and key features.",
+            "dependencies": [],
+            "details": "Create/update README.md at repository root with:\n\n**Project Overview Section**:\n- Brief description: \"Automated Korean tech news digest blog that crawls ETNews AI/Software section, extracts keywords and summaries using NLP, and generates Jekyll blog posts\"\n- Key features: Daily automation, Korean NLP (KoNLPy), GitHub Actions integration\n- Technology stack: Python 3.11+, Jekyll, KoNLPy/Okt, TF-IDF/TextRank\n\n**Architecture Section**:\n- Create ASCII/Mermaid diagram showing:\n  ```\n  ETNews AI/SW Section → Crawler → Article Data → Extractor (TF-IDF + TextRank) → Post Generator → Jekyll _posts/ → Git Commit → GitHub Pages\n  State File (seen_articles.json) ← → Deduplication\n  ```\n- Explain each component: crawler.py (fetch articles), extract.py (keywords/summary), generate.py (Jekyll posts), run_daily.py (orchestrator)\n- Note GitHub Actions triggers pipeline daily at 1 AM UTC (10 AM KST)\n- Mention state management prevents duplicate posts",
+            "status": "done",
+            "testStrategy": "Review README for clarity and completeness. Verify architecture diagram accurately represents the pipeline flow from task 6. Cross-check component descriptions match actual script names and purposes. Have another person read it to ensure it's understandable.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:07:28.901Z"
+          },
+          {
+            "id": 2,
+            "title": "Document setup and installation instructions",
+            "description": "Write detailed setup instructions covering prerequisites (Python 3.11+, Java 11+ for KoNLPy), local installation steps (pip install, KoNLPy/JVM setup), and configuration file editing (config.yml).",
+            "dependencies": [
+              1
+            ],
+            "details": "Add **Setup** section to README.md:\n\n**Prerequisites**:\n- Python 3.11 or higher\n- Java 11+ (required for KoNLPy's JVM dependency via JPype1)\n- Git\n- Optional: Ruby/Bundler for local Jekyll preview\n\n**Installation Steps**:\n1. Clone repository: `git clone <repo-url>`\n2. Install Python dependencies: `pip install -r requirements.txt`\n3. Install Java/JDK if not present (link to Java installation guides for Windows/Mac/Linux)\n4. Verify KoNLPy installation: `python -c \"from konlpy.tag import Okt; print('KoNLPy OK')\"`\n5. (Optional) Install Jekyll: `bundle install`\n\n**Configuration**:\n- Edit `config.yml` to adjust parameters:\n  - `crawler.section_url`: ETNews section URL\n  - `extraction.keyword_count`: Number of keywords (default 7)\n  - `extraction.summary_sentences`: Summary length (default 4)\n  - `generation.post_template`: Customize Jekyll front matter\n- Point to Configuration Reference section for full option details\n\n**Troubleshooting KoNLPy/Java**:\n- Windows: Set JAVA_HOME environment variable\n- Mac: Install via Homebrew `brew install openjdk@11`\n- Linux: `sudo apt-get install openjdk-11-jdk`",
+            "status": "done",
+            "testStrategy": "Follow setup instructions on a fresh machine/VM to verify they work end-to-end. Test on multiple OS (Windows, Mac, Linux) if possible. Verify KoNLPy installation instructions resolve common JVM issues. Ensure links to external resources (Java downloads) are valid.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:07:32.296Z"
+          },
+          {
+            "id": 3,
+            "title": "Create local testing guide with manual pipeline execution",
+            "description": "Write comprehensive local testing section documenting how to run the pipeline manually (python scripts/run_daily.py), test Jekyll site locally (bundle exec jekyll serve), and use dry-run mode for testing without committing.",
+            "dependencies": [
+              2
+            ],
+            "details": "Add **Local Testing** section to README.md:\n\n**Running Pipeline Manually**:\n- Execute full pipeline: `python scripts/run_daily.py`\n- Output: Fetches articles, extracts keywords/summaries, generates posts in `_posts/`, updates `seen_articles.json`\n- Check logs for errors or warnings\n\n**Dry-Run Mode**:\n- Test without committing state: `python scripts/run_daily.py --dry-run`\n- Generates posts but doesn't update `seen_articles.json`\n- Useful for testing extraction parameters or new article sources\n\n**Testing Jekyll Site Locally**:\n- Install Jekyll dependencies: `bundle install`\n- Start local server: `bundle exec jekyll serve`\n- View site at `http://localhost:4000`\n- Verify generated posts render correctly with keywords and summaries\n- Check Jekyll front matter (title, date, categories) is valid\n\n**Testing Individual Components**:\n- Test crawler only: `python scripts/crawl.py` (if standalone mode exists)\n- Test extraction: `python scripts/extract.py <article-text>` (if standalone)\n- Verify state file: `cat seen_articles.json` (check article IDs are tracked)\n\n**Common Testing Scenarios**:\n- First run: Should fetch recent articles and create initial state file\n- Subsequent runs: Should skip already-processed articles\n- Network failure: Should log error and exit gracefully\n- Invalid article HTML: Should skip article and continue",
+            "status": "done",
+            "testStrategy": "Execute each documented command and verify it works as described. Test dry-run mode and confirm it doesn't modify seen_articles.json. Run Jekyll locally and check generated posts display correctly. Test error scenarios (network failure, invalid HTML) match documented behavior.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:07:35.676Z"
+          },
+          {
+            "id": 4,
+            "title": "Document GitHub Actions workflow usage and troubleshooting",
+            "description": "Create section explaining the automated GitHub Actions workflow, including daily schedule (1 AM UTC / 10 AM KST), manual trigger via workflow_dispatch, viewing logs, and troubleshooting common workflow failures.",
+            "dependencies": [
+              3
+            ],
+            "details": "Add **GitHub Actions** section to README.md:\n\n**Automated Daily Execution**:\n- Workflow runs automatically every day at 1 AM UTC (10 AM KST)\n- Schedule defined in `.github/workflows/daily-update.yml` cron expression: `0 1 * * *`\n- Workflow steps: Checkout → Setup Python → Install dependencies → Run pipeline → Commit changes → Push to repo\n\n**Manual Trigger**:\n- Navigate to Actions tab in GitHub repository\n- Select \"Daily ETNews Update\" workflow\n- Click \"Run workflow\" button (workflow_dispatch trigger)\n- Useful for testing or running pipeline on-demand\n\n**Viewing Logs**:\n- Go to Actions tab → Click workflow run → View job logs\n- Check \"Run pipeline\" step for crawl/extract/generate output\n- Verify \"Commit changes\" step shows new posts committed\n\n**Troubleshooting Common Failures**:\n- **Network/crawl errors**: ETNews site may be down or changed HTML structure → Check crawler selectors in scripts/crawl.py\n- **KoNLPy/JVM errors**: Java not installed in GitHub Actions runner → Verify workflow installs Java (e.g., `actions/setup-java@v3`)\n- **State file conflicts**: Concurrent runs or manual edits → Delete `seen_articles.json` and re-run (will reprocess recent articles)\n- **No new articles**: ETNews section had no new posts in lookback period → Normal, workflow succeeds with no changes\n- **Jekyll build errors**: Invalid front matter in generated posts → Check post_template in config.yml\n\nAdd **Configuration Reference** section:\n- Document each `config.yml` option from task 9\n- Explain default values and acceptable ranges (e.g., keyword_count: 5-10, summary_sentences: 3-5)\n- Link to example config.yml",
+            "status": "done",
+            "testStrategy": "Verify GitHub Actions workflow file exists and matches documented schedule/triggers. Test manual workflow_dispatch trigger in GitHub UI. Review actual workflow logs and confirm they match described output. Test each troubleshooting scenario (if possible) and verify documented solutions work. Check Configuration Reference section matches actual config.yml structure from task 9.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:07:39.165Z"
+          },
+          {
+            "id": 5,
+            "title": "Add inline code documentation and create CONTRIBUTING.md",
+            "description": "Add comprehensive inline code comments and docstrings to all Python scripts (crawl.py, extract.py, generate.py, run_daily.py), explaining complex logic like HTML parsing selectors and TF-IDF calculation. Create CONTRIBUTING.md with guidelines for future contributors.",
+            "dependencies": [
+              4
+            ],
+            "details": "**Inline Code Documentation**:\n\nAdd to all Python scripts:\n- Module-level docstrings explaining purpose and usage\n- Function docstrings (Google or NumPy style) for all public functions:\n  ```python\n  def extract_keywords(text: str, count: int = 7) -> List[str]:\n      \"\"\"Extract top keywords from Korean text using TF-IDF.\n      \n      Args:\n          text: Article text in Korean\n          count: Number of keywords to return (default 7)\n      \n      Returns:\n          List of keyword strings, sorted by TF-IDF score descending\n      \n      Raises:\n          ValueError: If text is empty or count < 1\n      \"\"\"\n  ```\n- Comments for complex logic:\n  - HTML parsing: Document BeautifulSoup selectors (e.g., `soup.find('h1', class_='article-title')  # ETNews uses this class for titles`)\n  - TF-IDF calculation: Explain sklearn TfidfVectorizer parameters and scoring\n  - TextRank: Explain sentence similarity calculation and ranking algorithm\n  - State management: Explain seen_articles.json structure and dedup logic\n- TODO comments for Phase 3+ features:\n  ```python\n  # TODO(Phase 3): Replace TF-IDF with KeyBERT for transformer-based keyword extraction\n  # TODO(Phase 4): Add LLM summarization option (e.g., Claude API)\n  ```\n\n**CONTRIBUTING.md**:\n\nCreate `CONTRIBUTING.md` in repository root:\n- **Reporting Issues**: Use GitHub Issues template, include error logs and Python/Java versions\n- **Local Development Setup**: Link to README setup section\n- **Testing Changes Locally**: Run `python scripts/run_daily.py --dry-run`, test Jekyll preview, verify state file handling\n- **Pull Request Guidelines**:\n  - Create feature branch from main\n  - Add tests for new functionality\n  - Update README if adding new config options\n  - Ensure all scripts have docstrings\n  - Run local tests before submitting PR\n- **Code Style**: Follow PEP 8, use type hints, add docstrings for public functions\n- **Future Enhancement Ideas**: Link to Phase 3+ roadmap (KeyBERT, LLM integration, daily digest mode)\n\nAdd **Troubleshooting** section to README.md:\n- KoNLPy/JVM setup issues (reference setup section)\n- Network/crawl failures (ETNews site changes, rate limiting)\n- State file corruption recovery (delete and re-run)\n- Jekyll rendering issues (invalid front matter)\n\nAdd **Future Enhancements** section to README.md:\n- Phase 3: KeyBERT for better keyword extraction\n- Phase 4: LLM integration for summaries (Claude API)\n- Phase 5: Daily digest mode (single post per day with multiple articles)",
+            "status": "done",
+            "testStrategy": "Code review: Verify all public functions have docstrings with complete Args/Returns/Raises sections. Check complex logic (HTML parsing, TF-IDF) has explanatory comments. Ensure TODOs are clear and reference future phases. Review CONTRIBUTING.md for completeness and clarity. Test following contribution guidelines with a sample PR workflow. Verify all documentation links are valid.",
+            "parentId": "undefined",
+            "updatedAt": "2026-07-19T09:07:42.928Z"
+          }
+        ],
+        "complexity": 4,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down documentation into: (1) README.md with project overview and architecture diagram, (2) Setup and installation instructions (Python, Java, dependencies), (3) Local testing guide (running pipeline manually, Jekyll preview, dry-run mode), (4) GitHub Actions usage and troubleshooting section, (5) Inline code documentation (docstrings for all functions, comments for complex logic).",
+        "updatedAt": "2026-07-19T09:07:42.928Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-07-19T09:07:42.930Z",
+      "taskCount": 10,
+      "completedCount": 9,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
