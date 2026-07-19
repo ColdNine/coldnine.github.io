@@ -36,23 +36,22 @@ def run(dry_run: bool = False) -> int:
     """Run the full pipeline once. Returns a process exit code (0 success, 1 critical failure)."""
     config = load_config()
     state = load_state(config["state"]["file_path"])
+    lookback_days = config["crawler"]["lookback_days"]
 
     try:
-        articles = crawl_etnews_section(config["crawler"]["section_url"])
+        articles = crawl_etnews_section(
+            config["crawler"]["section_url"],
+            lookback_days=lookback_days,
+            skip_ids=set(state.get("processed_ids", [])),
+        )
     except Exception as exc:
         logger.critical("Crawl failed entirely: %s", exc)
         return 1
 
-    logger.info("Crawled %d articles", len(articles))
-    if not articles:
-        logger.critical("No articles found in crawl - possible site structure change or network issue")
-        return 1
-
-    lookback_days = config["crawler"]["lookback_days"]
     articles = [a for a in articles if _within_lookback(a, lookback_days)]
 
     new_articles = filter_unprocessed(articles, state)
-    logger.info("%d new article(s) to process (%d already processed)", len(new_articles), len(articles) - len(new_articles))
+    logger.info("%d new article(s) to process", len(new_articles))
 
     if not new_articles:
         logger.info("No new articles, exiting")
@@ -94,8 +93,8 @@ def run(dry_run: bool = False) -> int:
     touch_last_run(state)
     save_state(state, config["state"]["file_path"])
     logger.info(
-        "Pipeline completed: crawled=%d processed=%d skipped=%d failed=%d",
-        len(articles), processed_count, len(articles) - len(new_articles), failed_count,
+        "Pipeline completed: candidates=%d processed=%d failed=%d",
+        len(new_articles), processed_count, failed_count,
     )
     return 0
 

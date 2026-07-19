@@ -1,15 +1,20 @@
 """Crawler for ETNews AI/SW section articles.
 
-Fetches the section listing page, discovers article links, and retrieves
-full article content (title, published date, body text) for each one.
+Discovers article IDs by paginating through the section's AJAX listing
+endpoint (the same one the site's own "더보기"/load-more button uses), then
+retrieves full article content (title, published date, body text) for each.
+Paginating rather than reading only the single visible listing snapshot
+ensures articles aren't missed on high-volume days, when older not-yet-processed
+articles could otherwise be pushed off that snapshot before the next crawl.
 """
 
 import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import List
-from urllib.parse import urljoin
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
+from urllib.parse import urljoin, urlparse, parse_qs
 
 import requests
 from bs4 import BeautifulSoup
@@ -21,9 +26,11 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 )
 BASE_URL = "https://m.etnews.com"
+LISTING_AJAX_URL = f"{BASE_URL}/static/php/ajax_content.php"
 ARTICLE_ID_PATTERN = re.compile(r"^(\d{8})(\d{6})$")
 MAX_RETRIES = 3
 REQUEST_TIMEOUT = 15
+MAX_LISTING_PAGES = 20  # safety cap on pagination depth regardless of lookback_days
 
 
 @dataclass
@@ -38,12 +45,14 @@ class Article:
     section: str = "AI/SW"
 
 
-def _get_with_retry(session: requests.Session, url: str) -> requests.Response:
-    """GET a URL with exponential backoff retry on failure."""
+def _request_with_retry(
+    session: requests.Session, method: str, url: str, **kwargs
+) -> requests.Response:
+    """Make an HTTP request with exponential backoff retry on failure."""
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
-            response = session.get(url, timeout=REQUEST_TIMEOUT)
+            response = session.request(method, url, timeout=REQUEST_TIMEOUT, **kwargs)
             response.raise_for_status()
             return response
         except requests.RequestException as exc:
@@ -57,33 +66,89 @@ def _get_with_retry(session: requests.Session, url: str) -> requests.Response:
     raise last_exc
 
 
+def _get_with_retry(session: requests.Session, url: str) -> requests.Response:
+    """GET a URL with exponential backoff retry on failure."""
+    return _request_with_retry(session, "GET", url)
+
+
 def _make_session() -> requests.Session:
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
     return session
 
 
-def _extract_article_id(href: str) -> str | None:
-    """Return the article ID if href matches the YYYYMMDD + 6-digit pattern."""
-    path = href.strip().split("?")[0].rstrip("/")
-    candidate = path.rsplit("/", 1)[-1]
-    if ARTICLE_ID_PATTERN.match(candidate):
-        return candidate
-    return None
+def _extract_section_id(section_url: str) -> str:
+    """Extract the `id1` query parameter (section code, e.g. "04") from a section URL."""
+    query = parse_qs(urlparse(section_url).query)
+    values = query.get("id1")
+    if not values:
+        raise ValueError(f"Could not find id1= section parameter in {section_url!r}")
+    return values[0]
 
 
-def _parse_section_listing(html: str) -> List[str]:
-    """Parse the section listing page and return unique article IDs found."""
-    soup = BeautifulSoup(html, "lxml")
-    container = soup.find("ul", id="contents_list") or soup
-    ids: List[str] = []
+def _fetch_listing_page(
+    session: requests.Session, section_id: str, page: int
+) -> List[Tuple[str, str]]:
+    """Fetch one page of the section listing via the site's load-more AJAX endpoint.
+
+    Returns a list of (article_id, published_at) tuples for that page, newest first.
+    """
+    response = _request_with_retry(
+        session, "POST", LISTING_AJAX_URL,
+        data={"kwd": "", "page": page, "id1": section_id, "serial": "", "id": "", "sort": "1"},
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+    soup = BeautifulSoup(response.text, "xml")
+    results = []
+    for item in soup.find_all("item"):
+        art_code = item.find("art_code")
+        publish_date = item.find("publish_date")
+        if art_code and art_code.text and ARTICLE_ID_PATTERN.match(art_code.text.strip()):
+            results.append((art_code.text.strip(), (publish_date.text.strip() if publish_date else "")))
+    return results
+
+
+def _discover_article_ids(
+    session: requests.Session, section_id: str, lookback_days: int
+) -> List[str]:
+    """Paginate the listing endpoint, collecting article IDs within the lookback window."""
+    cutoff = datetime.now() - timedelta(days=lookback_days)
+    article_ids: List[str] = []
     seen = set()
-    for anchor in container.find_all("a", href=True):
-        article_id = _extract_article_id(anchor["href"])
-        if article_id and article_id not in seen:
+
+    for page in range(1, MAX_LISTING_PAGES + 1):
+        try:
+            page_items = _fetch_listing_page(session, section_id, page)
+        except requests.RequestException as exc:
+            logger.error("Failed to fetch listing page %d: %s", page, exc)
+            break
+
+        if not page_items:
+            logger.info("No more items at page %d, stopping pagination", page)
+            break
+
+        reached_cutoff = False
+        for article_id, published_at in page_items:
+            if article_id in seen:
+                continue
             seen.add(article_id)
-            ids.append(article_id)
-    return ids
+            article_ids.append(article_id)
+
+            try:
+                if datetime.strptime(published_at, "%Y-%m-%d %H:%M") < cutoff:
+                    reached_cutoff = True
+            except ValueError:
+                pass  # unparseable date: keep the article, don't use it to end pagination
+
+        if reached_cutoff:
+            logger.info("Reached %d-day lookback cutoff at listing page %d", lookback_days, page)
+            break
+    else:
+        logger.warning(
+            "Hit MAX_LISTING_PAGES=%d cap before reaching lookback cutoff", MAX_LISTING_PAGES
+        )
+
+    return article_ids
 
 
 def _parse_article_detail(html: str, article_id: str) -> Article:
@@ -123,14 +188,32 @@ def _parse_article_detail(html: str, article_id: str) -> Article:
     )
 
 
-def crawl_etnews_section(section_url: str) -> List[Article]:
-    """Crawl the given ETNews section URL and return all discovered articles."""
-    session = _make_session()
+def crawl_etnews_section(
+    section_url: str, lookback_days: int = 7, skip_ids: Optional[set] = None
+) -> List[Article]:
+    """Crawl the given ETNews section URL and return all discovered articles.
 
-    logger.info("Fetching section listing: %s", section_url)
-    listing_response = _get_with_retry(session, section_url)
-    article_ids = _parse_section_listing(listing_response.text)
-    logger.info("Found %d article(s) in section listing", len(article_ids))
+    Paginates the listing until articles older than `lookback_days` are reached
+    (or MAX_LISTING_PAGES is hit), so articles aren't missed on high-volume days.
+    IDs in `skip_ids` (e.g. already-processed articles) are skipped before the
+    detail-page fetch, so repeat daily runs don't re-fetch known articles.
+    """
+    session = _make_session()
+    section_id = _extract_section_id(section_url)
+
+    logger.info("Discovering articles for section id1=%s (lookback=%dd)", section_id, lookback_days)
+    article_ids = _discover_article_ids(session, section_id, lookback_days)
+    logger.info("Found %d article(s) within lookback window", len(article_ids))
+
+    if not article_ids:
+        raise RuntimeError(
+            "No articles discovered in listing - possible site structure change or network issue"
+        )
+
+    if skip_ids:
+        before = len(article_ids)
+        article_ids = [a for a in article_ids if a not in skip_ids]
+        logger.info("Skipping %d already-processed article(s)", before - len(article_ids))
 
     articles: List[Article] = []
     for article_id in article_ids:
