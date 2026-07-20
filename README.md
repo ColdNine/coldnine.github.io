@@ -176,12 +176,20 @@ in the Actions run rather than silently producing nothing.
 GitHub's Azure IP range, not rejecting the request at the HTTP level (see
 [Network access via Cloudflare WARP](#network-access-via-cloudflare-warp)). Check the
 "Set up Cloudflare WARP" step's log:
-- If `warp=on` never appears or the egress IP check fails, WARP itself failed to
-  connect — check the `warp-cli status` output printed just above it for the reason.
-- If `warp=on` and a real Cloudflare IP show up but the ETNews reachability check still
-  times out, ETNews is now blocking Cloudflare's range too, and WARP's free tier can't
-  route around it (no exit-region selection without a paid plan). At that point the
-  only remaining fix is a self-hosted runner on a non-cloud-datacenter IP.
+- `warp-cli`'s `Success` output only means a command was accepted, not that the tunnel
+  is actually up — the step instead polls real `warp-cli status` output for up to 30s
+  and prints it every second.
+- If status never reaches `Connected`, the step dumps `warp-svc`'s own daemon logs
+  (`journalctl -u warp-svc`) right there in the run log — that's the actual reason the
+  WireGuard handshake didn't complete (e.g. blocked UDP egress on the runner), and is
+  more reliable than anything `warp-cli` itself reports. The step then resets WARP
+  (`disconnect` + `mode off`) so DNS/networking fall back to normal for the rest of the
+  job instead of leaving DNS pointed at an unreachable Cloudflare resolver.
+- If status does reach `Connected` and a real Cloudflare egress IP shows up but the
+  ETNews reachability check still times out, ETNews is blocking Cloudflare's range too,
+  and WARP's free tier can't route around it (no exit-region selection without a paid
+  plan). At that point the only remaining fix is a self-hosted runner on a non-cloud-
+  datacenter IP.
 
 **State file corruption:** `scripts/state.py` detects invalid JSON in
 `data/processed_articles.json`, backs up the corrupt file alongside it
