@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # required to push the generated posts and state file
+      actions: write   # required to dispatch pages-deploy.yml after pushing
 
     steps:
       - name: Checkout repository
@@ -34,9 +35,25 @@ jobs:
         run: python scripts/run_daily.py
 
       - name: Commit and push if changes
+        id: commit
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add _posts/ data/processed_articles.json
-          git diff --staged --quiet || git commit -m "chore: auto-generated daily digest [skip ci]"
-          git push
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: auto-generated daily digest"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Pages deploy
+        # GITHUB_TOKEN-authenticated pushes never trigger other workflows
+        # (GitHub's anti-recursion rule), so pages-deploy.yml won't fire on
+        # its own push trigger for the commit above. workflow_dispatch calls
+        # are exempt from that rule, so dispatch it explicitly instead.
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages-deploy.yml --ref main
