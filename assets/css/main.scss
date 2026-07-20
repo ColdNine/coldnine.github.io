@@ -1,0 +1,62 @@
+---
+# Only the main Sass file needs front matter (the dashes are enough)
+---
+
+@charset "utf-8";
+
+/*
+   Custom colors — matches assets/icons/ favicon (navy background, white text, blue accent)
+   Set as plain variable assignments (not !default) so they win over the
+   theme's own `!default` values in _variables.scss, which is the officially
+   documented way to recolor minimal-mistakes without touching theme files.
+   ========================================================================== */
+
+$background-color: #112244;
+$text-color: #eef2f7;
+$muted-text-color: #b7c4d6;
+$border-color: #2c4370;
+$form-background-color: #1a2f52;
+$footer-background-color: #0b1830;
+$code-background-color: #0b1830;
+$code-background-color-dark: #0b1830;
+
+$primary-color: #3f7fd6;
+$info-color: #4a8fe0;
+$link-color: #6fa8ff;
+$link-color-hover: lighten(#6fa8ff, 10%);
+$link-color-visited: mix(#fff, #6fa8ff, 15%);
+$masthead-link-color: #eef2f7;
+$masthead-link-color-hover: #6fa8ff;
+$navicon-link-color-hover: mix(#112244, $primary-color, 60%);
+
+/* Skin */
+@import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
+
+/* Core */
+@import "minimal-mistakes"; // main partials
+
+/* Custom */
+.author__content {
+  margin-bottom: 10px;
+  vertical-align: middle;
+}
+
+.author__urls.is--visible {
+  width: max-content;
+  padding: 10px 15px;
+}
+
+.author__link-icon {
+  vertical-align: middle;
+  object-fit: contain;
+}
+
+.search-content .search-input { font-size: 25px; }
+
+.sidebar img { width: 20px; }
+
+.social-icons .fa-github,
+.social-icons .fa-github-alt,
+.social-icons .fa-github-square { color: #ffffff; }
+
+.fa-envelope-square { margin-right: 3px; }

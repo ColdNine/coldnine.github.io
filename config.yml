@@ -1,0 +1,24 @@
+# ETNews crawler configuration
+crawler:
+  section_url: 'https://m.etnews.com/news/section.html?id1=04'
+  lookback_days: 7  # Skip articles older than this many days
+  request_timeout: 15  # seconds
+  max_retries: 3
+
+# Extraction configuration
+extraction:
+  keyword_method: 'tfidf'  # Options: tfidf, keybert (future), llm (future)
+  keyword_count: 7
+
+  summarization_method: 'textrank'  # Options: textrank, llm (future)
+  summary_sentences: 4
+
+# Post generation configuration
+post:
+  output_mode: 'per_article'  # Options: per_article, daily_digest (future)
+  categories: ['etnews', 'ai-sw']
+  layout: 'single'  # matches the current theme's post layout name (minimal-mistakes)
+
+# State management
+state:
+  file_path: 'data/processed_articles.json'

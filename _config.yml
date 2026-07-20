@@ -1,60 +1,98 @@
-# Welcome to Jekyll!
-#
-# This config file is meant for settings that affect your whole blog, values
-# which you are expected to set up once and rarely edit after that. If you find
-# yourself editing this file very often, consider using Jekyll's data files
-# feature for the data you need to update frequently.
-#
-# For technical reasons, this file is *NOT* reloaded automatically when you use
-# 'bundle exec jekyll serve'. If you change this file, please restart the server process.
-#
-# If you need help with YAML syntax, here are some quick references for you:
-# https://learn-the-web.algonquindesign.ca/topics/markdown-yaml-cheat-sheet/#yaml
-# https://learnxinyminutes.com/docs/yaml/
-#
-# Site settings
-# These are used to personalize your new site. If you look in the HTML files,
-# you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
-# You can create any custom variable you would like, and they will be accessible
-# in the templates via {{ site.myvariable }}.
+title: Daily IT News
 
-title: Your awesome title
-email: your-email@example.com
+# Short name shown under the home-screen icon when installed as a PWA
+# (keep it short - ~12 characters is the usual safe limit on phone home screens).
+pwa_short_name: "IT News"
+
+author:
+  name: "COLD9"
+  email: "goldrocket18@gmail.com"
+  links:
+    # - label: "DOCS4COLD9"
+    #   icon: "/assets/icons/docs4cold9.png"
+    #   url: "https://cold9.gitlab.io/blog"
+    - label: "ETNews"
+      icon: "/assets/icons/etn.png"
+      url: "https://m.etnews.com"
+
+footer:
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/ColdNine/coldnine.github.io"
+
 description: >- # this means to ignore newlines until "baseurl:"
-  Write an awesome description for your new site here. You can edit this
-  line in _config.yml. It will appear in your document head meta (for
-  Google search results) and in your feed.xml site description.
+  Daily news keywords, crawled automatically.
+
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
-twitter_username: jekyllrb
-github_username:  jekyll
+
+url: "https://coldnine.github.io" # the base hostname & protocol for your site, e.g. http://example.com
+
+github_username: coldnine
+
+# Files/dirs that are part of this repo's automation tooling, not the site itself -
+# keep them out of the built _site output.
+exclude:
+  - scripts/
+  - data/
+  - config.yml
+  - requirements.txt
+  - README.md
+  - PRD.md
+  - CLAUDE.md
+  - Gemfile
+  - Gemfile.lock
 
 # Build settings
-#theme: minima
-remote_theme: jekyll/minima
+remote_theme: "mmistakes/minimal-mistakes@4.24.0"
+minimal_mistakes_skin: "default"
+
 plugins:
-  - jekyll-feed
   - jekyll-remote-theme
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-include-cache
 
-minima:
-  skin: dark
+# Pagination (used by the blog home page)
+paginate: 5
+paginate_path: /page:num/
 
-# Exclude from processing.
-# The following items will not be processed, by default.
-# Any item listed under the `exclude:` key here will be automatically added to
-# the internal "default list".
-#
-# Excluded items can be processed by explicitly listing the directories or
-# their entries' file path in the `include:` list.
-#
-# exclude:
-#   - .sass-cache/
-#   - .jekyll-cache/
-#   - gemfiles/
-#   - Gemfile
-#   - Gemfile.lock
-#   - node_modules/
-#   - vendor/bundle/
-#   - vendor/cache/
-#   - vendor/gems/
-#   - vendor/ruby/
+# Built-in Lunr search - handy once daily posts pile up
+search: true
+
+# Comments: routed through a custom provider so the existing Talkyard
+# integration (_includes/talkyard-comments.html) keeps working under the
+# new theme. See _includes/comments-providers/custom.html.
+comments:
+  provider: "custom"
+
+# Front matter defaults
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: single
+      author_profile: true
+
+# Talkyard
+#  - https://jekyll-demo.talkyard.io/2018/01/09/installation-instructions.html
+#  - https://www.talkyard.net/-/create-site/embedded-comments
+#  - https://comments-for-coldnine-github-io.talkyard.net
+talkyard_server_url: https://site-1jur3p7p01.talkyard.net
+talkyard_script_url: https://c1.ty-cdn.net/-/talkyard-comments.min.js
+
+timezone: Asia/Seoul
