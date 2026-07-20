@@ -145,6 +145,7 @@ in the Actions run rather than silently producing nothing.
 
 ## Future Enhancements
 
+- `proxy/vpn inside github-hosted job` — unblock ip from requests, currently endpoint(ETNews) block/drop connection specifically from github actions' hosted-runner ip ranges
 - `extraction.keyword_method: keybert` — embedding-based keyword extraction as an alternative to TF-IDF
 - `extraction.summarization_method: llm` / `keyword_method: llm` — LLM-based extraction as a selectable alternative
 - `post.output_mode: daily_digest` — one combined post per day instead of one per article
