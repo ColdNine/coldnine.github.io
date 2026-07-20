@@ -88,7 +88,40 @@ pipeline automatically:
 - **Schedule:** daily at 0 UTC (9 AM KST)
 - **Manual trigger:** GitHub repo → Actions tab → "Daily ETNews Digest" → **Run workflow**
 - **Logs:** each run's steps (crawl, extract, generate, commit) are visible under Actions → the run → job logs
-- The workflow only commits when there are actual changes (`git diff --staged --quiet`), and the commit message includes `[skip ci]` to avoid re-triggering itself
+- The workflow only commits when there are actual changes (`git diff --staged --quiet`)
+- Because the commit is pushed using the default `GITHUB_TOKEN`, it won't trigger
+  [`pages-deploy.yml`](.github/workflows/pages-deploy.yml) on its own — GitHub blocks
+  `GITHUB_TOKEN`-authored pushes from cascading into other workflow runs, as an
+  anti-recursion safeguard. `workflow_dispatch` calls are exempt from that rule, so
+  after a successful commit the job explicitly dispatches the deploy workflow itself
+  (`gh workflow run pages-deploy.yml`), which needs the `actions: write` permission
+  granted in the job
+
+### Network access via Cloudflare WARP
+
+ETNews blocks requests from GitHub-hosted runners at the network level (a raw TCP
+connect timeout, not an HTTP error) — almost certainly because GitHub-hosted runners
+share Microsoft Azure's public IP ranges (7,000+ CIDR blocks, published at
+[`api.github.com/meta`](https://api.github.com/meta) under `"actions"`), and sites
+that geo/cloud-fence tend to block that whole range rather than individual addresses.
+Retrying or re-running the job doesn't help, since every run lands somewhere in that
+same blocked range.
+
+To work around this, the "Set up Cloudflare WARP" step in `daily-post.yml` installs
+and connects to [Cloudflare WARP](https://developers.cloudflare.com/warp-client/) — a
+free consumer VPN (WireGuard-based, no account or payment required) — right before the
+crawl step, giving it a non-Azure exit IP. It logs the Cloudflare trace (`warp=on`
+check), the new egress IP, and a live reachability probe against the exact ETNews
+endpoint that previously timed out, so a failed run makes it obvious whether WARP
+itself failed to connect or connected fine but was blocked anyway. WARP is
+disconnected again immediately after the crawl (`if: always()`), so later steps (git
+push, the `gh workflow run` dispatch) keep using the runner's normal network path.
+
+**Known limitation:** the free WARP tier doesn't support picking an exit region, so
+traffic doesn't necessarily route through Korea, and Cloudflare's IP range could
+itself eventually get flagged by ETNews the same way Azure's was. If crawls start
+timing out again with `warp=on` and a real Cloudflare egress IP in the log, that's the
+likely cause — see [Troubleshooting](#troubleshooting).
 
 ## Configuration Reference
 
@@ -139,13 +172,23 @@ structure changes, the crawler may return 0 articles — `run_daily.py` treats
 an entirely empty crawl as a critical failure (exit code 1) so this is visible
 in the Actions run rather than silently producing nothing.
 
+**Crawl times out only in GitHub Actions, works locally:** ETNews is blocking
+GitHub's Azure IP range, not rejecting the request at the HTTP level (see
+[Network access via Cloudflare WARP](#network-access-via-cloudflare-warp)). Check the
+"Set up Cloudflare WARP" step's log:
+- If `warp=on` never appears or the egress IP check fails, WARP itself failed to
+  connect — check the `warp-cli status` output printed just above it for the reason.
+- If `warp=on` and a real Cloudflare IP show up but the ETNews reachability check still
+  times out, ETNews is now blocking Cloudflare's range too, and WARP's free tier can't
+  route around it (no exit-region selection without a paid plan). At that point the
+  only remaining fix is a self-hosted runner on a non-cloud-datacenter IP.
+
 **State file corruption:** `scripts/state.py` detects invalid JSON in
 `data/processed_articles.json`, backs up the corrupt file alongside it
 (`*.corrupt.<timestamp>`), and starts fresh rather than crashing the pipeline.
 
 ## Future Enhancements
 
-- `proxy/vpn inside github-hosted job` — unblock ip from requests, currently endpoint(ETNews) block/drop connection specifically from github actions' hosted-runner ip ranges
 - `extraction.keyword_method: keybert` — embedding-based keyword extraction as an alternative to TF-IDF
 - `extraction.summarization_method: llm` / `keyword_method: llm` — LLM-based extraction as a selectable alternative
 - `post.output_mode: daily_digest` — one combined post per day instead of one per article

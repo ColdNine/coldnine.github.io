@@ -31,8 +31,50 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Set up Cloudflare WARP
+        # GitHub-hosted runners share Azure's public IP ranges, which ETNews
+        # blocks at the network level (connect timeout, not an HTTP error).
+        # Cloudflare WARP is a free consumer VPN (WireGuard-based, no account
+        # needed) that routes traffic through Cloudflare's network instead,
+        # giving the crawl step a non-Azure exit IP. It's disconnected again
+        # right after the crawl so later steps (git push, gh CLI) keep using
+        # the runner's normal network path.
+        run: |
+          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          sudo apt-get update
+          sudo apt-get install -y cloudflare-warp
+
+          sudo systemctl enable --now warp-svc
+          for i in $(seq 1 15); do
+            warp-cli --accept-tos status >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+          warp-cli --accept-tos registration new
+          warp-cli --accept-tos mode warp
+          warp-cli --accept-tos connect
+
+          for i in $(seq 1 15); do
+            warp-cli --accept-tos status | grep -qi connected && break
+            sleep 1
+          done
+
+          echo "--- WARP status ---"
+          warp-cli --accept-tos status
+          echo "--- Cloudflare trace (expect warp=on) ---"
+          curl -s https://www.cloudflare.com/cdn-cgi/trace
+          echo "--- Egress IP ---"
+          curl -s https://ifconfig.me; echo
+          echo "--- ETNews reachability check through WARP ---"
+          curl -sS -o /dev/null -w "HTTP %{http_code} connect:%{time_connect}s total:%{time_total}s\n" --max-time 15 "https://m.etnews.com/news/section.html?id1=04" || echo "STILL UNREACHABLE THROUGH WARP"
+
       - name: Run daily pipeline
         run: python scripts/run_daily.py
+
+      - name: Disconnect Cloudflare WARP
+        if: always()
+        run: warp-cli --accept-tos disconnect || true
 
       - name: Commit and push if changes
         id: commit
