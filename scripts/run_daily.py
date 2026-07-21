@@ -75,7 +75,10 @@ def run(dry_run: bool = False) -> int:
                     article.id, keywords, len(summary),
                 )
             else:
-                generate_post(article, keywords, summary, categories=categories, layout=layout)
+                generate_post(
+                    article, keywords, summary, categories=categories, layout=layout,
+                    section_url=config["crawler"]["section_url"],
+                )
                 mark_processed(article.id, state)
 
             processed_count += 1

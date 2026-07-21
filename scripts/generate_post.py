@@ -59,7 +59,7 @@ def build_front_matter(
     return f"---\n{yaml_body}\n---\n"
 
 
-def build_body(keywords: List[str], summary: str, source_url: str) -> str:
+def build_body(keywords: List[str], summary: str, source_url: str, section_url: str) -> str:
     """Build the Markdown body: keywords, summary, and source attribution."""
     keyword_line = ", ".join(keywords)
     return (
@@ -67,7 +67,7 @@ def build_body(keywords: List[str], summary: str, source_url: str) -> str:
         f"## Summary\n{summary}\n\n"
         "---\n"
         f"*This post was automatically generated from [ETNews AI/SW section]"
-        f"({source_url}). [Read original article →]({source_url})*\n"
+        f"({section_url}). [Read original article →]({source_url})*\n"
     )
 
 
@@ -78,6 +78,7 @@ def generate_post(
     output_dir: str = "_posts",
     categories: List[str] = ("etnews", "ai-sw"),
     layout: str = "single",
+    section_url: str = "https://m.etnews.com/news/section.html?id1=04",
 ) -> str:
     """Generate a Jekyll Markdown post file for `article` and return its path."""
     os.makedirs(output_dir, exist_ok=True)
@@ -86,7 +87,7 @@ def generate_post(
     filepath = os.path.join(output_dir, filename)
 
     content = build_front_matter(article, keywords, categories, layout) + "\n" + build_body(
-        keywords, summary, article.url
+        keywords, summary, article.url, section_url
     )
 
     with open(filepath, "w", encoding="utf-8") as f:
@@ -110,6 +111,7 @@ if __name__ == "__main__":
         keywords=["서울", "기업", "지원", "사업", "기술"],
         summary="서울형 R&D는 기업 성장과 투자, 실증, 사업화를 연결하는 개방형 혁신 플랫폼으로 진화하고 있다.",
         output_dir="/tmp/generate_post_test",
+        section_url="https://m.etnews.com/news/section.html?id1=04",
     )
     print(path)
     with open(path, encoding="utf-8") as f:
