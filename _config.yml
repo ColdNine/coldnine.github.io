@@ -57,7 +57,7 @@ plugins:
   - jekyll-include-cache
 
 # Pagination (used by the blog home page)
-paginate: 5
+paginate: 10
 paginate_path: /page:num/
 
 # Built-in Lunr search - handy once daily posts pile up

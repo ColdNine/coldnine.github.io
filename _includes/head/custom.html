@@ -18,4 +18,20 @@
   }
 </script>
 
+<script>
+  (function () {
+    function setMastheadOffset() {
+      var masthead = document.querySelector(".masthead");
+      if (masthead) {
+        document.documentElement.style.setProperty(
+          "--masthead-height",
+          masthead.offsetHeight + "px"
+        );
+      }
+    }
+    document.addEventListener("DOMContentLoaded", setMastheadOffset);
+    window.addEventListener("resize", setMastheadOffset);
+  })();
+</script>
+
 <!-- end custom head snippets -->

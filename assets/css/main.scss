@@ -36,6 +36,18 @@ $navicon-link-color-hover: mix(#112244, $primary-color, 60%);
 @import "minimal-mistakes"; // main partials
 
 /* Custom */
+.masthead {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+}
+
+body {
+  padding-top: var(--masthead-height, 66px);
+}
+
 .author__content {
   margin-bottom: 10px;
   vertical-align: middle;

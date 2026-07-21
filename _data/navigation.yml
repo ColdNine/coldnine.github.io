@@ -1,0 +1,6 @@
+# main links
+# Overrides the theme's default navigation.yml (which ships a sample
+# "Quick-Start Guide" link to the theme's own docs). Must be an explicit
+# empty array, not a blank/null value — Jekyll's data-merge treats a nil
+# value as "not overriding" and falls back to the theme's own array.
+main: []
