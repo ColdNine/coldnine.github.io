@@ -13,7 +13,28 @@ author:
     #   url: "https://cold9.gitlab.io/blog"
     - label: "ETNews"
       icon: "/assets/icons/etn.png"
-      url: "https://m.etnews.com"
+      url: "https://etnews.com"
+      # section: AI·SW, ...
+    - label: "ZDNet"
+      icon: "/assets/icons/zdn.png"
+      url: "https://zdnet.co.kr"
+      # section: 컴퓨팅, 인터넷, 인공지능, ...
+    - label: "DTimes"
+      icon: "/assets/icons/dt.png"
+      url: "https://www.dt.co.kr"
+      # section: 컴퓨터, 보안·해킹, IT·소프트웨어, ...
+    - label: "DDaily"
+      icon: "/assets/icons/dd.png"
+      url: "https://www.ddaily.co.kr"
+      # category(cate): 정부공공IT, AI, 플랫폼, ...
+    - label: "DSecu"
+      icon: "/assets/icons/ds.png"
+      url: "https://www.dailysecu.com"
+      # section: 인공지능, IT
+    - label: "BNews"
+      icon: "/assets/icons/bn.png"
+      url: "https://www.boannews.com"
+      # section: SECURITY, IT, SAFETY
 
 footer:
   links:
