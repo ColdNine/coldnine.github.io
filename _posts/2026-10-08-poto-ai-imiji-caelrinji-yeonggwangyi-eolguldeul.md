@@ -1,0 +1,19 @@
+---
+layout: single
+title: '[포토] AI 이미지 챌린지 영광의 얼굴들'
+date: 2026-10-08 14:34:00 +0900
+categories: [etnews, ai-sw]
+tags: [왼쪽, 서울, 스마트, 라이프, 부대, 행사, 이미지]
+source_url: https://m.etnews.com/20261008000248
+auto_generated: true
+---
+
+## Keywords
+왼쪽, 서울, 스마트, 라이프, 부대, 행사, 이미지
+
+## Summary
+스마트 라이프 위크 2026 부대행사인 AI 이미지 챌린지 공모전 시상식이 8일 서울 강남굼 코엑스에서 열렸다. 김만기 서울AI재단 이사장(왼쪽), 정영준 서울특별시 디지털도시국장(왼쪽 여섯번째), 이진호 전자신문 논설실장(왼쪽 열번째)이 수상자들과 기념촬영을 하고 있다. 김민수기자 mskim@etnews.com
+포토&영상
+
+---
+*This post was automatically generated from [ETNews AI/SW section](https://m.etnews.com/news/section.html?id1=04). [Read original article →](https://m.etnews.com/20261008000248)*
