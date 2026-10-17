@@ -1,10 +1,10 @@
 ---
 layout: single
 title: '[포토] 키노트 강연하는 정소영 엔비디아코리아 엔터프라이즈 사업 부문 대표'
-date: 2026-10-13 15:44:00 +0900
+date: 2026-10-13 15:45:00 +0900
 categories: [etnews, ai-sw]
 tags: [산업, 엔비디아, 통상부, 주최, 한국, 전자전, 서울]
-source_url: https://m.etnews.com/20261013000343
+source_url: https://m.etnews.com/20261013000346
 auto_generated: true
 ---
 
@@ -16,4 +16,4 @@ auto_generated: true
 포토&영상
 
 ---
-*This post was automatically generated from [ETNews AI/SW section](https://m.etnews.com/news/section.html?id1=04). [Read original article →](https://m.etnews.com/20261013000343)*
+*This post was automatically generated from [ETNews AI/SW section](https://m.etnews.com/news/section.html?id1=04). [Read original article →](https://m.etnews.com/20261013000346)*
