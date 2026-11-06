@@ -1,10 +1,10 @@
 ---
 layout: single
 title: '[포토] SCEWC 2026 리야드의 스마트시티'
-date: 2026-11-04 07:04:00 +0900
+date: 2026-11-04 14:19:00 +0900
 categories: [etnews, ai-sw]
 tags: [스마트, 시티, 바르셀로나, 리야드, 세계, 최대, 전시회]
-source_url: https://m.etnews.com/20261104000008
+source_url: https://m.etnews.com/20261104000328
 auto_generated: true
 ---
 
@@ -16,4 +16,4 @@ auto_generated: true
 포토&영상
 
 ---
-*This post was automatically generated from [ETNews AI/SW section](https://m.etnews.com/news/section.html?id1=04). [Read original article →](https://m.etnews.com/20261104000008)*
+*This post was automatically generated from [ETNews AI/SW section](https://m.etnews.com/news/section.html?id1=04). [Read original article →](https://m.etnews.com/20261104000328)*
