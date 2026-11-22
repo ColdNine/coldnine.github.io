@@ -39,6 +39,7 @@ DEFAULTS: Dict[str, Any] = {
     "post": {
         "output_mode": "per_article",
         "layout": "single",
+        "retention_days": 365,
     },
     "state": {
         "file_path": "data/processed_articles.json",
@@ -109,6 +110,9 @@ def _validate(config: dict) -> None:
         raise ValueError("crawler.lookback_days must be >= 1")
     if config["crawler"]["max_pages"] < 1:
         raise ValueError("crawler.max_pages must be >= 1")
+    retention = config["post"]["retention_days"]
+    if retention is not None and (not isinstance(retention, int) or retention < 0):
+        raise ValueError("post.retention_days must be an integer >= 0 (0 or null disables pruning)")
 
     _validate_sources(config["sources"])
 

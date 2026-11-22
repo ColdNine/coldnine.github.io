@@ -15,7 +15,7 @@ from typing import Iterable, List, Optional
 from config import load_config
 from crawl import Article, crawl_etnews_section
 from extract import extract_keywords_tfidf, summarize_textrank
-from generate_post import generate_post
+from generate_post import generate_post, prune_expired_posts
 from sources import crawl_source_section
 from state import load_state, save_state, mark_processed, filter_unprocessed, touch_last_run
 
@@ -160,6 +160,13 @@ def run(
     lookback_days = crawler_cfg["lookback_days"]
 
     sources = _select_sources(config["sources"], only_sources, exclude_sources)
+
+    # Rolling retention: drop auto-generated posts whose article date has aged out.
+    # Runs before crawling and independently of crawl success, so it still happens on
+    # days when a source is down. Already-processed IDs stay in the state file, so a
+    # pruned article can never be re-posted.
+    prune_expired_posts(config["post"]["retention_days"] or 0, dry_run=dry_run)
+
     logger.info("Sources to crawl: %s", ", ".join(sources) or "(none)")
 
     succeeded, failed_sources = [], []

@@ -2,7 +2,8 @@
 
 import logging
 import os
-from datetime import datetime
+import re
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import yaml
@@ -126,6 +127,78 @@ def generate_post(
 
     logger.info("Generated post: %s", filepath)
     return filepath
+
+
+_FRONT_MATTER_DATE = re.compile(
+    r"^date:\s*['\"]?(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2})(?::\d{2})?)?\s*(?:([+-]\d{2}):?(\d{2}))?",
+    re.MULTILINE,
+)
+_FILENAME_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})-")
+_AUTO_GENERATED = re.compile(r"^auto_generated:\s*true\s*$", re.MULTILINE | re.IGNORECASE)
+_KST = timezone(timedelta(hours=9))
+
+
+def _post_date(filename: str, text: str) -> Optional[datetime]:
+    """Return a post's (timezone-aware) date from its front matter, else from its filename."""
+    match = _FRONT_MATTER_DATE.search(text)
+    if match:
+        day, hm, tz_h, tz_m = match.groups()
+        tz = _KST
+        if tz_h:
+            sign = -1 if tz_h.startswith("-") else 1
+            tz = timezone(sign * timedelta(hours=abs(int(tz_h)), minutes=int(tz_m or 0)))
+        try:
+            return datetime.strptime(f"{day} {hm or '00:00'}", "%Y-%m-%d %H:%M").replace(tzinfo=tz)
+        except ValueError:
+            pass
+    match = _FILENAME_DATE.match(filename)
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y-%m-%d").replace(tzinfo=_KST)
+        except ValueError:
+            pass
+    return None
+
+
+def prune_expired_posts(
+    retention_days: int, output_dir: str = "_posts", dry_run: bool = False
+) -> List[str]:
+    """Delete auto-generated posts whose article date is older than `retention_days`.
+
+    The age is measured from the post's own `date:` (the original article's publish
+    date), so every source keeps a rolling window of the last `retention_days` days.
+    Only files with `auto_generated: true` are ever deleted - hand-written posts are
+    left alone. `retention_days <= 0` disables pruning. Returns the affected paths.
+    """
+    if retention_days <= 0 or not os.path.isdir(output_dir):
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    expired: List[str] = []
+    for filename in sorted(os.listdir(output_dir)):
+        if not filename.endswith((".md", ".markdown")):
+            continue
+        path = os.path.join(output_dir, filename)
+        with open(path, encoding="utf-8") as f:
+            head = f.read(4096)  # front matter is at the top
+        if not _AUTO_GENERATED.search(head):
+            continue
+        date = _post_date(filename, head)
+        if date is None:
+            logger.warning("Could not determine date of %s, keeping it", path)
+            continue
+        if date < cutoff:
+            expired.append(path)
+            if not dry_run:
+                os.remove(path)
+
+    if expired:
+        logger.info(
+            "%s %d post(s) older than %d day(s) (before %s)",
+            "[dry-run] Would delete" if dry_run else "Deleted",
+            len(expired), retention_days, cutoff.astimezone(_KST).strftime("%Y-%m-%d %H:%M KST"),
+        )
+    return expired
 
 
 if __name__ == "__main__":

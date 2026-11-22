@@ -91,6 +91,11 @@ extraction:
 post:
   output_mode: 'per_article'  # Options: per_article, daily_digest (future)
   layout: 'single'  # matches the current theme's post layout name (minimal-mistakes)
+  # Rolling retention: on every run, auto-generated posts whose article date is older
+  # than this many days are deleted from _posts/ (so the site only shows the last year
+  # of news per source). Hand-written posts (no `auto_generated: true`) are never
+  # touched. 0 disables pruning.
+  retention_days: 365
 
 # State management
 state:

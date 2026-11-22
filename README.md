@@ -177,6 +177,7 @@ likely cause — see [Troubleshooting](#troubleshooting).
 | `extraction.summary_sentences` | Number of sentences in the summary | `4` |
 | `post.output_mode` | `per_article` (one post per article); `daily_digest` reserved for future use | `per_article` |
 | `post.layout` | Jekyll layout name | `single` |
+| `post.retention_days` | Rolling retention: each run deletes auto-generated posts whose `date:` (the original article's publish date) is older than this many days, so every source keeps only its last year of posts on the site. Posts without `auto_generated: true` are never deleted. Deleted posts stay in git history, and their IDs stay in the state file so they're never re-posted. `0` disables | `365` |
 | `state.file_path` | Path to the processed-article-ID tracking file | `data/processed_articles.json` |
 
 If `config.yml` is missing, the pipeline falls back to these defaults. Invalid

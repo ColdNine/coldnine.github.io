@@ -125,7 +125,8 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add _posts/ data/processed_articles.json
+          # -A also stages deletions from the post.retention_days pruning step.
+          git add -A _posts/ data/processed_articles.json
           if git diff --staged --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
