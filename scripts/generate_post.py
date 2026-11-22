@@ -3,7 +3,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import yaml
 from slugify import slugify
@@ -36,13 +36,38 @@ def build_filename(article: Article) -> str:
     return f"{date.strftime('%Y-%m-%d')}-{slug}.md"
 
 
+def _unique_filepath(output_dir: str, filename: str, article: Article) -> str:
+    """Return a path for `filename` that won't clobber a *different* article's post.
+
+    Two sources can publish the same headline (e.g. a syndicated press release) on the
+    same day, which would slugify to the same filename. If the existing file is for the
+    same source URL it's simply overwritten (re-run of the same article); otherwise a
+    source-key suffix (and, if still taken, the article ID) is appended.
+    """
+    stem, ext = os.path.splitext(filename)
+    candidates = [filename, f"{stem}-{article.source}{ext}", f"{stem}-{article.id}{ext}"]
+    for candidate in candidates:
+        path = os.path.join(output_dir, candidate)
+        if not os.path.exists(path):
+            return path
+        with open(path, encoding="utf-8") as f:
+            if f"source_url: {article.url}\n" in f.read():
+                return path
+    return os.path.join(output_dir, candidates[-1])
+
+
 def build_front_matter(
     article: Article,
     keywords: List[str],
-    categories: List[str] = ("etnews", "ai-sw"),
+    categories: Optional[List[str]] = None,
     layout: str = "single",
 ) -> str:
-    """Build the YAML front matter block for a post."""
+    """Build the YAML front matter block for a post.
+
+    Categories default to [<source key>, <section slug>], e.g. [zdnet, computing].
+    """
+    if categories is None:
+        categories = [article.source, article.section_slug]
     date = _parse_published_at(article.published_at)
     data = {
         "layout": layout,
@@ -59,14 +84,17 @@ def build_front_matter(
     return f"---\n{yaml_body}\n---\n"
 
 
-def build_body(keywords: List[str], summary: str, source_url: str, section_url: str) -> str:
+def build_body(
+    keywords: List[str], summary: str, source_url: str, section_url: str,
+    source_label: str = "ETNews", section_name: str = "AI·SW",
+) -> str:
     """Build the Markdown body: keywords, summary, and source attribution."""
     keyword_line = ", ".join(keywords)
     return (
         f"## Keywords\n{keyword_line}\n\n"
         f"## Summary\n{summary}\n\n"
         "---\n"
-        f"*This post was automatically generated from [ETNews AI/SW section]"
+        f"*This post was automatically generated from [{source_label} {section_name} section]"
         f"({section_url}). [Read original article →]({source_url})*\n"
     )
 
@@ -76,18 +104,21 @@ def generate_post(
     keywords: List[str],
     summary: str,
     output_dir: str = "_posts",
-    categories: List[str] = ("etnews", "ai-sw"),
+    categories: Optional[List[str]] = None,
     layout: str = "single",
-    section_url: str = "https://m.etnews.com/news/section.html?id1=04",
+    section_url: Optional[str] = None,
 ) -> str:
-    """Generate a Jekyll Markdown post file for `article` and return its path."""
+    """Generate a Jekyll Markdown post file for `article` and return its path.
+
+    `categories` and `section_url` default to the article's own source/section fields.
+    """
     os.makedirs(output_dir, exist_ok=True)
 
-    filename = build_filename(article)
-    filepath = os.path.join(output_dir, filename)
+    filepath = _unique_filepath(output_dir, build_filename(article), article)
 
     content = build_front_matter(article, keywords, categories, layout) + "\n" + build_body(
-        keywords, summary, article.url, section_url
+        keywords, summary, article.url, section_url or article.section_url,
+        source_label=article.source_label, section_name=article.section,
     )
 
     with open(filepath, "w", encoding="utf-8") as f:

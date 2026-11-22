@@ -1,13 +1,19 @@
-name: Daily ETNews Digest
+name: Daily IT News Digest
 
 on:
   schedule:
     - cron: '0 0 * * *'  # 0 UTC = 9 AM KST
   workflow_dispatch:  # allow manual trigger from the GitHub UI
 
+# Never let a manual run and the scheduled run race each other on the state file / push.
+concurrency:
+  group: daily-post
+  cancel-in-progress: false
+
 jobs:
   generate-post:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write  # required to push the generated posts and state file
       actions: write   # required to dispatch pages-deploy.yml after pushing
@@ -30,6 +36,14 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
+
+      - name: Crawl sources over the runner's network (all except ETNews)
+        # ZDNet, Digital Times, Digital Daily, DailySecu and BoanNews are crawled over the runner's normal network first.
+        # Only ETNews is known to block GitHub's Azure IP ranges, so it waits for the WARP step below.
+        # continue-on-error: any source that fails here is retried through WARP in the next pipeline step.
+        id: direct
+        continue-on-error: true
+        run: python scripts/run_daily.py --exclude-source etnews
 
       - name: Set up Cloudflare WARP
         # GitHub-hosted runners share Azure's public IP ranges, which ETNews
@@ -81,10 +95,23 @@ jobs:
             curl -s --max-time 10 https://ifconfig.me || echo "ifconfig.me curl failed"; echo
           fi
 
-          echo "--- ETNews reachability check ---"
-          curl -sS -o /dev/null -w "HTTP %{http_code} connect:%{time_connect}s total:%{time_total}s\n" --max-time 15 "https://m.etnews.com/news/section.html?id1=04" || echo "STILL UNREACHABLE"
+          echo "--- Source reachability check (through WARP) ---"
+          for url in \
+            "https://m.etnews.com/news/section.html?id1=04" \
+            "https://zdnet.co.kr/news/?lstcode=0020&page=1" \
+            "https://www.dt.co.kr/ict/it" \
+            "https://www.ddaily.co.kr/ai" \
+            "https://www.dailysecu.com/news/articleList.html?sc_section_code=S1N9&view_type=sm" \
+            "https://www.boannews.com/rss/S1N6.xml"; do
+            curl -sS -o /dev/null -w "HTTP %{http_code} connect:%{time_connect}s total:%{time_total}s  ${url}\n" --max-time 15 "$url" || echo "UNREACHABLE  ${url}"
+          done
 
-      - name: Run daily pipeline
+      - name: Crawl ETNews (and retry any failed source) through WARP
+        # Runs every configured source. Sources already crawled in the direct step
+        # find nothing new (processed IDs are in the state file), so this effectively
+        # crawls ETNews plus anything that failed over the runner's own network.
+        # Exits non-zero only if every source failed.
+        id: warp
         run: python scripts/run_daily.py
 
       - name: Disconnect Cloudflare WARP
@@ -92,6 +119,8 @@ jobs:
         run: warp-cli --accept-tos disconnect || true
 
       - name: Commit and push if changes
+        # Runs even if the WARP crawl step failed, so posts from the direct step are kept.
+        if: ${{ !cancelled() }}
         id: commit
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
@@ -101,6 +130,8 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore: auto-generated daily digest"
+            # main may have moved while the crawl ran - replay our commit on top of it.
+            git pull --rebase origin main
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -110,7 +141,7 @@ jobs:
         # (GitHub's anti-recursion rule), so pages-deploy.yml won't fire on
         # its own push trigger for the commit above. workflow_dispatch calls
         # are exempt from that rule, so dispatch it explicitly instead.
-        if: steps.commit.outputs.changed == 'true'
+        if: ${{ !cancelled() && steps.commit.outputs.changed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run pages-deploy.yml --ref main

@@ -1,9 +1,83 @@
-# ETNews crawler configuration
+# Daily IT news crawler configuration
 crawler:
-  section_url: 'https://m.etnews.com/news/section.html?id1=04'
   lookback_days: 7  # Skip articles older than this many days
   request_timeout: 15  # seconds
   max_retries: 3
+  max_pages: 3  # listing pages to walk per section on each run (ETNews uses its own cap)
+
+# News sources - one entry per site listed under `author.links` in _config.yml.
+# Each section becomes the post's second category (first is the source key), e.g.
+# categories: [zdnet, computing]. `url` is the section listing page ({page} is
+# replaced with the page number) or, for boannews, the section RSS feed.
+# `page_url` (optional) is the human-facing section page linked in each post's footer.
+# Set `enabled: false` on a source to pause it without deleting its settings.
+sources:
+  etnews:
+    label: ETNews
+    sections:
+      - name: AI·SW
+        slug: ai-sw
+        url: 'https://m.etnews.com/news/section.html?id1=04'
+
+  zdnet:
+    label: ZDNet Korea
+    sections:
+      - name: 컴퓨팅
+        slug: computing
+        url: 'https://zdnet.co.kr/news/?lstcode=0020&page={page}'
+      - name: 인터넷
+        slug: internet
+        url: 'https://zdnet.co.kr/news/?lstcode=0040&page={page}'
+
+  dtimes:
+    label: 디지털타임스
+    sections:
+      - name: 컴퓨터
+        slug: computer
+        url: 'https://www.dt.co.kr/ict/computer?page={page}'
+      - name: 보안·해킹
+        slug: security
+        url: 'https://www.dt.co.kr/ict/security?page={page}'
+      - name: IT·소프트웨어
+        slug: it-sw
+        url: 'https://www.dt.co.kr/ict/it?page={page}'
+
+  ddaily:
+    label: 디지털데일리
+    sections:
+      - name: 정책/공공
+        slug: governance
+        url: 'https://www.ddaily.co.kr/governance?page={page}'
+      - name: AI
+        slug: ai
+        url: 'https://www.ddaily.co.kr/ai?page={page}'
+      - name: 플랫폼/유통
+        slug: platform
+        url: 'https://www.ddaily.co.kr/platform?page={page}'
+
+  dailysecu:
+    label: 데일리시큐
+    sections:
+      - name: 인공지능
+        slug: ai
+        url: 'https://www.dailysecu.com/news/articleList.html?sc_section_code=S1N9&view_type=sm&page={page}'
+      - name: IT
+        slug: it
+        url: 'https://www.dailysecu.com/news/articleList.html?sc_section_code=S1N11&view_type=sm&page={page}'
+
+  boannews:
+    label: 보안뉴스
+    # BoanNews' HTML section listing ignores its section/page parameters, so the
+    # per-section RSS feeds are crawled instead (see https://www.boannews.com/rssIndex.html).
+    sections:
+      - name: 사건·사고
+        slug: incident
+        url: 'https://www.boannews.com/rss/S1N2.xml'
+        page_url: 'https://www.boannews.com/news/articleList.html?sc_section_code=S1N2&view_type=sm'
+      - name: IT·과학
+        slug: it-science
+        url: 'https://www.boannews.com/rss/S1N6.xml'
+        page_url: 'https://www.boannews.com/news/articleList.html?sc_section_code=S1N6&view_type=sm'
 
 # Extraction configuration
 extraction:
@@ -16,7 +90,6 @@ extraction:
 # Post generation configuration
 post:
   output_mode: 'per_article'  # Options: per_article, daily_digest (future)
-  categories: ['etnews', 'ai-sw']
   layout: 'single'  # matches the current theme's post layout name (minimal-mistakes)
 
 # State management

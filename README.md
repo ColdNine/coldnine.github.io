@@ -1,10 +1,21 @@
-# coldnine.github.io — Daily ETNews AI/SW Digest
+# coldnine.github.io — Daily IT News Digest
 
 A Jekyll blog (GitHub Pages) that automatically publishes a daily keyword +
-summary digest of Korean IT news from [ETNews](https://m.etnews.com)'s AI/SW
-section. A scheduled GitHub Actions workflow crawls new articles, extracts
-keywords and a summary, and commits generated Markdown posts — no manual
-intervention required.
+summary digest of Korean IT news from six outlets (the same six linked in the
+sidebar via `_config.yml`'s `author.links`). A scheduled GitHub Actions workflow
+crawls new articles, extracts keywords and a summary, and commits generated
+Markdown posts — no manual intervention required.
+
+| Source key | Outlet | Sections crawled | Listing method |
+|---|---|---|---|
+| `etnews` | [ETNews](https://m.etnews.com) | AI·SW | site AJAX listing (`crawl.py`) |
+| `zdnet` | [ZDNet Korea](https://zdnet.co.kr) | 컴퓨팅, 인터넷 | HTML section listing |
+| `dtimes` | [디지털타임스](https://www.dt.co.kr) | 컴퓨터, 보안·해킹, IT·소프트웨어 | HTML section listing |
+| `ddaily` | [디지털데일리](https://www.ddaily.co.kr) | 정책/공공, AI, 플랫폼/유통 | HTML section listing |
+| `dailysecu` | [데일리시큐](https://www.dailysecu.com) | 인공지능, IT | HTML section listing |
+| `boannews` | [보안뉴스](https://www.boannews.com) | 사건·사고, IT·과학 | section RSS feed |
+
+Each post's categories are `[<source key>, <section slug>]`, e.g. `[zdnet, computing]`.
 
 ## Architecture
 
@@ -15,6 +26,8 @@ GitHub Actions (daily cron)
 scripts/run_daily.py  (orchestrator)
         │
         ├─► scripts/crawl.py         crawl ETNews AI/SW section listing + article pages
+        ├─► scripts/sources.py       crawl the other five sources (per-site SiteProfile:
+        │                            listing selector / RSS, article URL, body selector)
         ├─► scripts/state.py         filter out already-processed article IDs
         ├─► scripts/extract.py       TF-IDF keywords (KoNLPy) + TextRank summary (sumy)
         ├─► scripts/generate_post.py write Jekyll post to _posts/YYYY-MM-DD-<slug>.md
@@ -50,11 +63,27 @@ keyword/summary tuning, or post metadata — see the
 
 ## Local Testing
 
-Run the full pipeline (crawls live ETNews, writes real posts, updates state):
+Run the full pipeline (crawls all configured sources live, writes real posts, updates state):
 
 ```bash
 python scripts/run_daily.py
 ```
+
+Limit a run to some sources (repeatable flags; keys from `config.yml`'s `sources:`):
+
+```bash
+python scripts/run_daily.py --source zdnet --source boannews
+python scripts/run_daily.py --exclude-source etnews
+```
+
+Crawl a single section ad hoc and print what it finds (non-ETNews sources):
+
+```bash
+python scripts/sources.py zdnet 'https://zdnet.co.kr/news/?lstcode=0020&page={page}'
+```
+
+A failure in one source (site down, layout change) is logged and the other sources
+still run; the process only exits non-zero if *every* selected source failed.
 
 Dry run — crawls and extracts, but writes no files and doesn't touch state:
 
@@ -86,7 +115,14 @@ tracks already-processed article IDs.
 pipeline automatically:
 
 - **Schedule:** daily at 0 UTC (9 AM KST)
-- **Manual trigger:** GitHub repo → Actions tab → "Daily ETNews Digest" → **Run workflow**
+- **Manual trigger:** GitHub repo → Actions tab → "Daily IT News Digest" → **Run workflow**
+- **Two crawl passes:** first `run_daily.py --exclude-source etnews` over the runner's
+  own network (`continue-on-error`), then — after WARP is up — a full `run_daily.py`
+  that crawls ETNews and retries anything that failed in the first pass (sources that
+  already succeeded find nothing new thanks to the state file). Failed sources show up
+  as warning annotations on the run.
+- The commit step runs even if the WARP pass fails, so posts from the first pass are
+  never lost; it rebases onto `main` before pushing in case `main` moved mid-run.
 - **Logs:** each run's steps (crawl, extract, generate, commit) are visible under Actions → the run → job logs
 - The workflow only commits when there are actual changes (`git diff --staged --quiet`)
 - Because the commit is pushed using the default `GITHUB_TOKEN`, it won't trigger
@@ -110,9 +146,10 @@ same blocked range.
 To work around this, the "Set up Cloudflare WARP" step in `daily-post.yml` installs
 and connects to [Cloudflare WARP](https://developers.cloudflare.com/warp-client/) — a
 free consumer VPN (WireGuard-based, no account or payment required) — right before the
-crawl step, giving it a non-Azure exit IP. It logs the Cloudflare trace (`warp=on`
-check), the new egress IP, and a live reachability probe against the exact ETNews
-endpoint that previously timed out, so a failed run makes it obvious whether WARP
+second crawl pass, giving it a non-Azure exit IP. The other five sources are crawled
+*before* WARP comes up, so they don't depend on it. It logs the Cloudflare trace (`warp=on`
+check), the new egress IP, and a live reachability probe against every source's
+listing endpoint, so a failed run makes it obvious whether WARP
 itself failed to connect or connected fine but was blocked anyway. WARP is
 disconnected again immediately after the crawl (`if: always()`), so later steps (git
 push, the `gh workflow run` dispatch) keep using the runner's normal network path.
@@ -127,21 +164,34 @@ likely cause — see [Troubleshooting](#troubleshooting).
 
 | Key | Description | Default |
 |---|---|---|
-| `crawler.section_url` | ETNews section listing URL to crawl | AI/SW section |
-| `crawler.lookback_days` | How far back (in days) the crawler paginates the section listing; articles older than this are skipped. Also the depth the crawler walks back on each run, so late/backlogged articles from prior days are never missed regardless of publishing volume | `7` |
-| `crawler.request_timeout` | HTTP request timeout (seconds) | `15` |
-| `crawler.max_retries` | Retry attempts per HTTP request | `3` |
+| `crawler.lookback_days` | How far back (in days) the crawler paginates the section listing; articles older than this are skipped | `7` |
+| `crawler.request_timeout` | HTTP request timeout (seconds), non-ETNews sources | `15` |
+| `crawler.max_retries` | Retry attempts per HTTP request, non-ETNews sources | `3` |
+| `crawler.max_pages` | Max listing pages walked per section per run (non-ETNews). Pagination also stops early once a page has no unprocessed articles or reaches the lookback cutoff | `3` |
+| `sources.<key>.label` | Outlet name used in each post's attribution footer | — |
+| `sources.<key>.sections[]` | `name` (display), `slug` (2nd post category), `url` (listing URL with optional `{page}`, or RSS feed for `boannews`), optional `page_url` (footer link) | ETNews AI·SW only |
+| `sources.<key>.enabled` | Set `false` to pause a source without deleting its config | `true` |
 | `extraction.keyword_method` | Keyword extraction method (`tfidf`; `keybert`/`llm` reserved for future use) | `tfidf` |
 | `extraction.keyword_count` | Number of keywords per post | `7` |
 | `extraction.summarization_method` | Summarization method (`textrank`; `llm` reserved for future use) | `textrank` |
 | `extraction.summary_sentences` | Number of sentences in the summary | `4` |
 | `post.output_mode` | `per_article` (one post per article); `daily_digest` reserved for future use | `per_article` |
-| `post.categories` | Jekyll post categories | `[etnews, ai-sw]` |
-| `post.layout` | Jekyll layout name | `post` |
+| `post.layout` | Jekyll layout name | `single` |
 | `state.file_path` | Path to the processed-article-ID tracking file | `data/processed_articles.json` |
 
 If `config.yml` is missing, the pipeline falls back to these defaults. Invalid
-values (e.g. an unrecognized `keyword_method`) raise a clear error at startup.
+values (e.g. an unrecognized `keyword_method` or source key) raise a clear error at startup.
+`sources:` is replaced wholesale (not merged with defaults), so removing a source
+from `config.yml` really stops crawling it.
+
+Article IDs in `data/processed_articles.json` are bare for ETNews
+(`20261120000214`, unchanged from before) and `<source>-<native id>` for the others
+(`zdnet-20261121072639`), so IDs from different sites can never collide.
+
+**Adding a section:** append an entry under that source's `sections:`. **Adding a
+new site:** add a `SiteProfile` to `PROFILES` in `scripts/sources.py` (listing
+selector or RSS, article URL template, body selector) and its key to
+`KNOWN_SOURCES` in `scripts/config.py`.
 
 ## PWA
 
@@ -166,11 +216,18 @@ KoNLPy needs a JDK with Java 9+. Java 8 is too old and will fail with
 `Java version too old`. Install a newer JDK and make sure it's first on `PATH`
 (check with `java -version`).
 
-**Crawl / network failures:** `scripts/crawl.py` retries each request up to
-`crawler.max_retries` times with exponential backoff. If ETNews' page
-structure changes, the crawler may return 0 articles — `run_daily.py` treats
-an entirely empty crawl as a critical failure (exit code 1) so this is visible
-in the Actions run rather than silently producing nothing.
+**Crawl / network failures:** each request is retried up to
+`crawler.max_retries` times with exponential backoff. If a site's page structure
+changes, its listing yields 0 articles — that section is reported as failed (a
+`::warning::` annotation in Actions) while the other sources keep running. Articles
+whose title or body can't be found are skipped with a "possible layout change"
+warning rather than producing empty posts. If *every* source fails, `run_daily.py`
+exits 1 so the run goes red. To fix a broken site, adjust its `SiteProfile`
+selectors in `scripts/sources.py`.
+
+**BoanNews uses RSS:** its HTML `articleList.html` ignores both `sc_section_code`
+and `page` (always returns the same all-articles snapshot), so its sections are
+crawled from `https://www.boannews.com/rss/<section>.xml` instead.
 
 **Crawl times out only in GitHub Actions, works locally:** ETNews is blocking
 GitHub's Azure IP range, not rejecting the request at the HTTP level (see

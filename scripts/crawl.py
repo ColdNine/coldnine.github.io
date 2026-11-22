@@ -35,14 +35,22 @@ MAX_LISTING_PAGES = 20  # safety cap on pagination depth regardless of lookback_
 
 @dataclass
 class Article:
-    """A single crawled ETNews article: metadata plus full body text."""
+    """A single crawled news article: metadata plus full body text.
+
+    `source`/`source_label`/`section*` describe where the article was listed; they
+    default to ETNews AI/SW and are overwritten by run_daily.py per configured section.
+    """
 
     id: str
     url: str
     title: str
     published_at: str
     raw_text: str
-    section: str = "AI/SW"
+    section: str = "AI·SW"
+    source: str = "etnews"
+    source_label: str = "ETNews"
+    section_slug: str = "ai-sw"
+    section_url: str = ""
 
 
 def _request_with_retry(
